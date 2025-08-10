@@ -193,3 +193,124 @@ deploy:
 		}
 	}
 }
+
+func TestParseInvalidYAML(t *testing.T) {
+	yaml := `
+invalid: yaml: content:
+  - with: malformed
+    structure
+`
+	_, err := Parse([]byte(yaml))
+	if err == nil {
+		t.Error("expected error for invalid YAML, got nil")
+	}
+}
+
+func TestParseEmptyConfig(t *testing.T) {
+	yaml := ``
+	config, err := Parse([]byte(yaml))
+	if err != nil {
+		t.Fatalf("parsing empty config: %v", err)
+	}
+
+	if config == nil {
+		t.Error("expected config to be non-nil for empty YAML")
+	}
+
+	if len(config.Jobs) != 0 {
+		t.Errorf("expected 0 jobs for empty config, got %d", len(config.Jobs))
+	}
+}
+
+func TestParseVariablesTypes(t *testing.T) {
+	yaml := `
+variables:
+  STRING_VAR: "hello"
+  NUMBER_VAR: 42
+  BOOLEAN_VAR: true
+  NULL_VAR: null
+  
+test:
+  script:
+    - echo "test"
+  variables:
+    LOCAL_VAR: "local value"
+    OVERRIDE_VAR: 123
+`
+	config, err := Parse([]byte(yaml))
+	if err != nil {
+		t.Fatalf("parsing config with variable types: %v", err)
+	}
+
+	if config.Variables["STRING_VAR"] != "hello" {
+		t.Errorf("expected STRING_VAR to be 'hello', got %v", config.Variables["STRING_VAR"])
+	}
+
+	if config.Variables["NUMBER_VAR"] != 42 {
+		t.Errorf("expected NUMBER_VAR to be 42, got %v", config.Variables["NUMBER_VAR"])
+	}
+
+	if config.Variables["BOOLEAN_VAR"] != true {
+		t.Errorf("expected BOOLEAN_VAR to be true, got %v", config.Variables["BOOLEAN_VAR"])
+	}
+
+	if config.Variables["NULL_VAR"] != nil {
+		t.Errorf("expected NULL_VAR to be nil, got %v", config.Variables["NULL_VAR"])
+	}
+
+	testJob := config.Jobs["test"]
+	if testJob.Variables["LOCAL_VAR"] != "local value" {
+		t.Errorf("expected LOCAL_VAR to be 'local value', got %v", testJob.Variables["LOCAL_VAR"])
+	}
+}
+
+func TestParseJobsWithSpecialNames(t *testing.T) {
+	yaml := `
+"job with spaces":
+  script:
+    - echo "spaces"
+
+job-with-dashes:
+  script:
+    - echo "dashes"
+
+job_with_underscores:
+  script:
+    - echo "underscores"
+
+"job:with:colons":
+  script:
+    - echo "colons"
+
+"123numeric-start":
+  script:
+    - echo "numeric"
+
+".hidden-job":
+  script:
+    - echo "hidden"
+`
+	config, err := Parse([]byte(yaml))
+	if err != nil {
+		t.Fatalf("parsing config with special job names: %v", err)
+	}
+
+	expectedJobs := []string{
+		"job with spaces",
+		"job-with-dashes",
+		"job_with_underscores",
+		"job:with:colons",
+		"123numeric-start",
+		// Note: ".hidden-job" might be filtered out by GitLab CI parser
+	}
+
+	if len(config.Jobs) < len(expectedJobs) {
+		t.Errorf("expected at least %d jobs, got %d", len(expectedJobs), len(config.Jobs))
+	}
+
+	for _, jobName := range expectedJobs {
+		if _, exists := config.Jobs[jobName]; !exists {
+			t.Errorf("expected job '%s' to exist", jobName)
+		}
+	}
+}
