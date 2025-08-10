@@ -1,0 +1,12 @@
+# Binary
+gitlab-smith
+
+# Go build cache
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
