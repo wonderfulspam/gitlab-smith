@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-GitLabSmith is a GitLab CI/CD configuration refactoring and validation tool written in Go. Currently in specification phase with implementation pending.
+GitLabSmith is a GitLab CI/CD configuration refactoring and validation tool written in Go. See `implementation-state.json` for current implementation status.
 
 ## Technology Stack
 
@@ -36,10 +36,16 @@ go mod download
 go mod tidy
 ```
 
-### GitLabSmith CLI Usage (Planned)
+### GitLabSmith CLI Usage
 ```bash
+# Parse and display GitLab CI configuration
+gitlab-smith parse .gitlab-ci.yml
+
 # Static analysis mode
 gitlab-smith refactor --old .gitlab-ci.yml --new .gitlab-ci-new.yml
+
+# With table output format
+gitlab-smith refactor --old .gitlab-ci.yml --new .gitlab-ci-new.yml --format table
 
 # Full testing mode with local GitLab
 gitlab-smith refactor --old .gitlab-ci.yml --new .gitlab-ci-new.yml --full-test
@@ -47,7 +53,7 @@ gitlab-smith refactor --old .gitlab-ci.yml --new .gitlab-ci-new.yml --full-test
 
 ## Architecture
 
-### Project Structure (Planned)
+### Project Structure
 ```
 gitlab-smith/
 ├── cmd/gitlab-smith/       # CLI entry point
@@ -60,8 +66,10 @@ gitlab-smith/
 ├── internal/
 │   ├── config/            # Configuration management
 │   └── gitlab/            # GitLab API client wrapper
-└── test/
-    └── fixtures/          # Test GitLab CI configurations
+├── test/
+│   └── fixtures/          # Test GitLab CI configurations
+├── implementation-state.json  # Current implementation status
+└── pipeline-emulator-spec.md  # Detailed specification
 ```
 
 ### Core Components
@@ -74,7 +82,7 @@ gitlab-smith/
 
 ### Implementation Phases
 
-**Phase 1 (Ready to Implement)**: Core Analysis & Semantic Diffing
+**Phase 1**: Core Analysis & Semantic Diffing
 - GitLab CI parser with dependency mapping
 - Semantic differ for configuration comparison
 - Static analyzer with rule engine
@@ -105,3 +113,5 @@ To begin implementation:
 2. Set up Cobra CLI structure in `cmd/gitlab-smith/`
 3. Implement Phase 1 starting with the parser module
 4. Use the specification in `pipeline-emulator-spec.md` as the detailed guide
+
+**Current Status**: See `implementation-state.json` for detailed implementation progress.
