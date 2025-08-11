@@ -69,6 +69,102 @@ func TestCheckImageTags(t *testing.T) {
 			},
 			expected: 0,
 		},
+		{
+			name: "image with variable expansion",
+			config: &parser.GitLabConfig{
+				Variables: map[string]interface{}{
+					"BASE_IMAGE": "alpine",
+					"REGISTRY":   "registry.example.com",
+					"PROJECT":    "my-project",
+				},
+				Default: &parser.JobConfig{Image: "$DOCKER_IMAGE"}, // Unknown variable, should be skipped
+				Jobs: map[string]*parser.JobConfig{
+					"test1": {Image: "${CI_REGISTRY_IMAGE}:v1.0"}, // Predefined var with tag
+					"test2": {Image: "$BASE_IMAGE:latest"},        // Custom var with :latest tag
+					"test3": {Image: "${REGISTRY}/${PROJECT}"},    // Custom vars, no tag - should trigger
+					"test4": {Image: "${CI_REGISTRY_IMAGE}"},      // Predefined var, no tag - should trigger
+				},
+			},
+			expected: 3, // test2 (:latest), test3 (no tag), test4 (no tag)
+		},
+		{
+			name: "job-level variable expansion",
+			config: &parser.GitLabConfig{
+				Variables: map[string]interface{}{
+					"GLOBAL_IMAGE": "ubuntu",
+				},
+				Jobs: map[string]*parser.JobConfig{
+					"test": {
+						Image: "${JOB_IMAGE}:16",
+						Variables: map[string]interface{}{
+							"JOB_IMAGE": "node",
+						},
+					},
+				},
+			},
+			expected: 0, // Should resolve to node:16
+		},
+		{
+			name: "custom variables with proper tags should pass",
+			config: &parser.GitLabConfig{
+				Variables: map[string]interface{}{
+					"NODE_IMAGE":   "node:22",
+					"PYTHON_IMAGE": "python:3.11-slim",
+					"BASE_IMAGE":   "ubuntu:20.04",
+				},
+				Jobs: map[string]*parser.JobConfig{
+					"node_job":   {Image: "${NODE_IMAGE}"},
+					"python_job": {Image: "$PYTHON_IMAGE"},
+					"base_job":   {Image: "${BASE_IMAGE}"},
+				},
+			},
+			expected: 0, // All should pass as they expand to properly tagged images
+		},
+		{
+			name: "custom variables with latest tags should fail",
+			config: &parser.GitLabConfig{
+				Variables: map[string]interface{}{
+					"NODE_IMAGE":   "node:latest",
+					"PYTHON_IMAGE": "python:latest",
+					"GOOD_IMAGE":   "alpine:3.18",
+				},
+				Jobs: map[string]*parser.JobConfig{
+					"node_job":   {Image: "${NODE_IMAGE}"},
+					"python_job": {Image: "$PYTHON_IMAGE"},
+					"good_job":   {Image: "${GOOD_IMAGE}"},
+				},
+			},
+			expected: 2, // node_job and python_job should fail due to :latest
+		},
+		{
+			name: "custom variables without tags should fail",
+			config: &parser.GitLabConfig{
+				Variables: map[string]interface{}{
+					"NODE_IMAGE":   "node",
+					"PYTHON_IMAGE": "python",
+					"GOOD_IMAGE":   "alpine:3.18",
+				},
+				Jobs: map[string]*parser.JobConfig{
+					"node_job":   {Image: "${NODE_IMAGE}"},
+					"python_job": {Image: "$PYTHON_IMAGE"},
+					"good_job":   {Image: "${GOOD_IMAGE}"},
+				},
+			},
+			expected: 2, // node_job and python_job should fail due to missing tags
+		},
+		{
+			name: "non-string variables should be converted",
+			config: &parser.GitLabConfig{
+				Variables: map[string]interface{}{
+					"VERSION": 22,
+					"DEBUG":   true,
+				},
+				Jobs: map[string]*parser.JobConfig{
+					"test": {Image: "node:${VERSION}"}, // Should expand to node:22
+				},
+			},
+			expected: 0, // Should pass as it expands to node:22
+		},
 	}
 
 	for _, tt := range tests {

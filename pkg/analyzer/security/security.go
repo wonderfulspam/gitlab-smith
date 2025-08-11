@@ -2,6 +2,7 @@ package security
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
@@ -22,22 +23,101 @@ func RegisterChecks(registry CheckRegistry) {
 func CheckImageTags(config *parser.GitLabConfig) []types.Issue {
 	var issues []types.Issue
 
-	checkImage := func(image, path, jobName string) {
-		if image != "" && !strings.Contains(image, ":") {
+	// Build variable context for expansion
+	variables := make(map[string]string)
+
+	// Add ALL global variables from the config
+	if config.Variables != nil {
+		for key, value := range config.Variables {
+			if str, ok := value.(string); ok {
+				variables[key] = str
+			} else {
+				// Handle non-string values by converting to string
+				variables[key] = fmt.Sprintf("%v", value)
+			}
+		}
+	}
+
+	// Add common GitLab CI predefined variables with reasonable defaults for analysis
+	commonVars := map[string]string{
+		"CI_REGISTRY_IMAGE":  "registry.gitlab.com/group/project",
+		"CI_COMMIT_REF_SLUG": "main",
+		"CI_COMMIT_SHA":      "abcd1234",
+		"CI_PROJECT_PATH":    "group/project",
+		"CI_PROJECT_NAME":    "project",
+		"CI_PIPELINE_ID":     "12345",
+	}
+	for key, value := range commonVars {
+		if _, exists := variables[key]; !exists {
+			variables[key] = value
+		}
+	}
+
+	// Helper function to expand variables in image strings
+	expandVariables := func(image string, jobVars map[string]interface{}) string {
+		expanded := image
+
+		// Create job-specific variable context
+		jobVariables := make(map[string]string)
+		for k, v := range variables {
+			jobVariables[k] = v
+		}
+		if jobVars != nil {
+			for key, value := range jobVars {
+				if str, ok := value.(string); ok {
+					jobVariables[key] = str
+				} else {
+					// Handle non-string values by converting to string
+					jobVariables[key] = fmt.Sprintf("%v", value)
+				}
+			}
+		}
+
+		// Regex patterns for variable substitution
+		varPattern := regexp.MustCompile(`\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?`)
+
+		expanded = varPattern.ReplaceAllStringFunc(expanded, func(match string) string {
+			// Extract variable name (handle both $VAR and ${VAR} formats)
+			varName := varPattern.FindStringSubmatch(match)[1]
+			if value, exists := jobVariables[varName]; exists {
+				return value
+			}
+			// Return original if variable not found (could be dynamic/runtime variable)
+			return match
+		})
+
+		return expanded
+	}
+
+	checkImage := func(image, path, jobName string, jobVars map[string]interface{}) {
+		if image == "" {
+			return
+		}
+
+		// Expand variables first
+		expandedImage := expandVariables(image, jobVars)
+
+		// If expansion didn't resolve all variables, skip tag checking
+		if strings.Contains(expandedImage, "$") {
+			return
+		}
+
+		// Check for missing tag after expansion
+		if !strings.Contains(expandedImage, ":") {
 			issues = append(issues, types.Issue{
 				Type:       types.IssueTypeSecurity,
 				Severity:   types.SeverityMedium,
 				Path:       path,
-				Message:    "Docker image without explicit tag: " + image,
+				Message:    "Docker image without explicit tag: " + image + " (expands to: " + expandedImage + ")",
 				Suggestion: "Use specific tags instead of 'latest' for reproducible builds",
 				JobName:    jobName,
 			})
-		} else if strings.HasSuffix(image, ":latest") {
+		} else if strings.HasSuffix(expandedImage, ":latest") {
 			issues = append(issues, types.Issue{
 				Type:       types.IssueTypeSecurity,
 				Severity:   types.SeverityLow,
 				Path:       path,
-				Message:    "Using 'latest' tag: " + image,
+				Message:    "Using 'latest' tag: " + image + " (expands to: " + expandedImage + ")",
 				Suggestion: "Pin to specific version for reproducible builds",
 				JobName:    jobName,
 			})
@@ -46,12 +126,12 @@ func CheckImageTags(config *parser.GitLabConfig) []types.Issue {
 
 	// Check default image
 	if config.Default != nil {
-		checkImage(config.Default.Image, "default.image", "")
+		checkImage(config.Default.Image, "default.image", "", config.Default.Variables)
 	}
 
 	// Check job-specific images
 	for jobName, job := range config.Jobs {
-		checkImage(job.Image, "jobs."+jobName+".image", jobName)
+		checkImage(job.Image, "jobs."+jobName+".image", jobName, job.Variables)
 	}
 
 	return issues
