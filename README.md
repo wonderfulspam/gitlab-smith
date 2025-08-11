@@ -35,6 +35,11 @@ go build -o gitlab-smith ./cmd/gitlab-smith
 - Go 1.21+ 
 - Unix/Linux environment
 
+### From GitHub
+```bash
+go install github.com/wonderfulspam/gitlab-smith/cmd/gitlab-smith@latest
+```
+
 ### From Source
 ```bash
 git clone <repository-url>
