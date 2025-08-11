@@ -2,10 +2,10 @@ package security
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/varexpand"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
@@ -22,72 +22,7 @@ func RegisterChecks(registry CheckRegistry) {
 
 func CheckImageTags(config *parser.GitLabConfig) []types.Issue {
 	var issues []types.Issue
-
-	// Build variable context for expansion
-	variables := make(map[string]string)
-
-	// Add ALL global variables from the config
-	if config.Variables != nil {
-		for key, value := range config.Variables {
-			if str, ok := value.(string); ok {
-				variables[key] = str
-			} else {
-				// Handle non-string values by converting to string
-				variables[key] = fmt.Sprintf("%v", value)
-			}
-		}
-	}
-
-	// Add common GitLab CI predefined variables with reasonable defaults for analysis
-	commonVars := map[string]string{
-		"CI_REGISTRY_IMAGE":  "registry.gitlab.com/group/project",
-		"CI_COMMIT_REF_SLUG": "main",
-		"CI_COMMIT_SHA":      "abcd1234",
-		"CI_PROJECT_PATH":    "group/project",
-		"CI_PROJECT_NAME":    "project",
-		"CI_PIPELINE_ID":     "12345",
-	}
-	for key, value := range commonVars {
-		if _, exists := variables[key]; !exists {
-			variables[key] = value
-		}
-	}
-
-	// Helper function to expand variables in image strings
-	expandVariables := func(image string, jobVars map[string]interface{}) string {
-		expanded := image
-
-		// Create job-specific variable context
-		jobVariables := make(map[string]string)
-		for k, v := range variables {
-			jobVariables[k] = v
-		}
-		if jobVars != nil {
-			for key, value := range jobVars {
-				if str, ok := value.(string); ok {
-					jobVariables[key] = str
-				} else {
-					// Handle non-string values by converting to string
-					jobVariables[key] = fmt.Sprintf("%v", value)
-				}
-			}
-		}
-
-		// Regex patterns for variable substitution
-		varPattern := regexp.MustCompile(`\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?`)
-
-		expanded = varPattern.ReplaceAllStringFunc(expanded, func(match string) string {
-			// Extract variable name (handle both $VAR and ${VAR} formats)
-			varName := varPattern.FindStringSubmatch(match)[1]
-			if value, exists := jobVariables[varName]; exists {
-				return value
-			}
-			// Return original if variable not found (could be dynamic/runtime variable)
-			return match
-		})
-
-		return expanded
-	}
+	expander := varexpand.New(config)
 
 	checkImage := func(image, path, jobName string, jobVars map[string]interface{}) {
 		if image == "" {
@@ -95,7 +30,7 @@ func CheckImageTags(config *parser.GitLabConfig) []types.Issue {
 		}
 
 		// Expand variables first
-		expandedImage := expandVariables(image, jobVars)
+		expandedImage := expander.ExpandString(image, jobVars)
 
 		// If expansion didn't resolve all variables, skip tag checking
 		if strings.Contains(expandedImage, "$") {

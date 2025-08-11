@@ -200,6 +200,52 @@ func TestCheckDuplicatedImageConfig(t *testing.T) {
 			t.Errorf("Expected duplicate image message, got: %s", issues[0].Message)
 		}
 	})
+
+	t.Run("Variable expansion prevents false negatives in duplication detection", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Variables: map[string]interface{}{
+				"PYTHON_IMAGE": "python:3.11",
+			},
+			Jobs: map[string]*parser.JobConfig{
+				"test1": {Image: "${PYTHON_IMAGE}"},
+				"test2": {Image: "${PYTHON_IMAGE}"},
+				"test3": {Image: "${PYTHON_IMAGE}"},
+			},
+		}
+
+		issues := CheckDuplicatedImageConfig(config)
+
+		if len(issues) != 1 {
+			t.Errorf("Expected 1 issue for duplicate expanded images, got %d", len(issues))
+		}
+
+		if len(issues) > 0 && !strings.Contains(issues[0].Message, "python:3.11") {
+			t.Errorf("Expected expanded image name in message, got: %s", issues[0].Message)
+		}
+	})
+
+	t.Run("Mixed variable and literal images are properly compared", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Variables: map[string]interface{}{
+				"NODE_IMAGE": "node:18",
+			},
+			Jobs: map[string]*parser.JobConfig{
+				"job1": {Image: "${NODE_IMAGE}"},
+				"job2": {Image: "node:18"}, // Same as expanded variable
+				"job3": {Image: "${NODE_IMAGE}"},
+			},
+		}
+
+		issues := CheckDuplicatedImageConfig(config)
+
+		if len(issues) != 1 {
+			t.Errorf("Expected 1 issue for mixed variable/literal duplicates, got %d", len(issues))
+		}
+
+		if len(issues) > 0 && !strings.Contains(issues[0].Message, "node:18") {
+			t.Errorf("Expected resolved image name in message, got: %s", issues[0].Message)
+		}
+	})
 }
 
 func TestCheckDuplicatedSetup(t *testing.T) {

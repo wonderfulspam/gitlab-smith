@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/varexpand"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
@@ -196,7 +197,7 @@ func CheckMatrixOpportunities(config *parser.GitLabConfig) []types.Issue {
 
 	// Look for stages with multiple similar jobs
 	for stage, jobNames := range stageGroups {
-		if len(jobNames) >= 3 && canUseMatrix(jobNames, config.Jobs) {
+		if len(jobNames) >= 3 && canUseMatrix(jobNames, config.Jobs, config) {
 			issues = append(issues, types.Issue{
 				Type:       types.IssueTypePerformance,
 				Severity:   types.SeverityMedium,
@@ -279,7 +280,7 @@ func CheckWorkflowOptimization(config *parser.GitLabConfig) []types.Issue {
 
 // Helper functions
 
-func canUseMatrix(jobNames []string, jobs map[string]*parser.JobConfig) bool {
+func canUseMatrix(jobNames []string, jobs map[string]*parser.JobConfig, config *parser.GitLabConfig) bool {
 	if len(jobNames) < 2 {
 		return false
 	}
@@ -289,6 +290,9 @@ func canUseMatrix(jobNames []string, jobs map[string]*parser.JobConfig) bool {
 	if firstJob == nil {
 		return false
 	}
+
+	// Create variable expander to properly compare images
+	expander := varexpand.New(config)
 
 	// Look for patterns that indicate matrix potential
 	commonStage := 0
@@ -307,9 +311,15 @@ func canUseMatrix(jobNames []string, jobs map[string]*parser.JobConfig) bool {
 		}
 		commonStage++
 
-		// Different images often indicate matrix opportunity
-		if job.Image != firstJob.Image && job.Image != "" && firstJob.Image != "" {
-			differentImages++
+		// Different images often indicate matrix opportunity - expand variables first
+		firstImage := expander.ExpandString(firstJob.Image, firstJob.Variables)
+		currentImage := expander.ExpandString(job.Image, job.Variables)
+
+		if currentImage != firstImage && job.Image != "" && firstJob.Image != "" {
+			// Only count as different if both images are fully resolved (no unresolved variables)
+			if !expander.HasUnresolvedVariables(firstImage) && !expander.HasUnresolvedVariables(currentImage) {
+				differentImages++
+			}
 		}
 
 		// Different variables suggest matrix opportunity

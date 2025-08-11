@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/varexpand"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
@@ -125,6 +126,7 @@ func calculateScriptOverlap(script1, script2 []string) float64 {
 func CheckDuplicatedCacheConfig(config *parser.GitLabConfig) []types.Issue {
 	var issues []types.Issue
 	cacheSets := make(map[string][]string)
+	expander := varexpand.New(config)
 
 	for jobName, job := range config.Jobs {
 		// Skip template jobs (starting with .) from duplication analysis
@@ -132,9 +134,34 @@ func CheckDuplicatedCacheConfig(config *parser.GitLabConfig) []types.Issue {
 			continue
 		}
 		if job.Cache != nil {
+			// Expand variables in cache key and paths
+			var expandedKey string
+			if keyStr, ok := job.Cache.Key.(string); ok {
+				expandedKey = expander.ExpandString(keyStr, job.Variables)
+			} else {
+				expandedKey = fmt.Sprintf("%v", job.Cache.Key)
+			}
+
+			expandedPaths := make([]string, len(job.Cache.Paths))
+			for i, path := range job.Cache.Paths {
+				expandedPaths[i] = expander.ExpandString(path, job.Variables)
+			}
+
 			// Create a unique key for the cache configuration
-			cacheKey := fmt.Sprintf("key:%s_paths:%s", job.Cache.Key, strings.Join(job.Cache.Paths, ","))
-			cacheSets[cacheKey] = append(cacheSets[cacheKey], jobName)
+			cacheKey := fmt.Sprintf("key:%s_paths:%s", expandedKey, strings.Join(expandedPaths, ","))
+
+			// Only process if all variables are resolved
+			allResolved := !expander.HasUnresolvedVariables(expandedKey)
+			for _, path := range expandedPaths {
+				if expander.HasUnresolvedVariables(path) {
+					allResolved = false
+					break
+				}
+			}
+
+			if allResolved {
+				cacheSets[cacheKey] = append(cacheSets[cacheKey], jobName)
+			}
 		}
 	}
 
@@ -157,6 +184,7 @@ func CheckDuplicatedCacheConfig(config *parser.GitLabConfig) []types.Issue {
 func CheckDuplicatedImageConfig(config *parser.GitLabConfig) []types.Issue {
 	var issues []types.Issue
 	imageSets := make(map[string][]string)
+	expander := varexpand.New(config)
 
 	for jobName, job := range config.Jobs {
 		// Skip template jobs (starting with .) from duplication analysis
@@ -164,7 +192,13 @@ func CheckDuplicatedImageConfig(config *parser.GitLabConfig) []types.Issue {
 			continue
 		}
 		if job.Image != "" {
-			imageSets[job.Image] = append(imageSets[job.Image], jobName)
+			// Expand variables in image names for accurate duplication detection
+			expandedImage := expander.ExpandString(job.Image, job.Variables)
+
+			// Only process fully resolved images to avoid false positives
+			if !expander.HasUnresolvedVariables(expandedImage) {
+				imageSets[expandedImage] = append(imageSets[expandedImage], jobName)
+			}
 		}
 	}
 

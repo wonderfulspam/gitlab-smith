@@ -435,6 +435,7 @@ func TestCanUseMatrix(t *testing.T) {
 		name     string
 		jobNames []string
 		jobs     map[string]*parser.JobConfig
+		config   *parser.GitLabConfig
 		expected bool
 	}{
 		{
@@ -443,6 +444,7 @@ func TestCanUseMatrix(t *testing.T) {
 			jobs: map[string]*parser.JobConfig{
 				"job1": {Stage: "test"},
 			},
+			config:   &parser.GitLabConfig{Jobs: make(map[string]*parser.JobConfig)},
 			expected: false,
 		},
 		{
@@ -452,6 +454,7 @@ func TestCanUseMatrix(t *testing.T) {
 				"job1": {Stage: "build"},
 				"job2": {Stage: "test"},
 			},
+			config:   &parser.GitLabConfig{Jobs: make(map[string]*parser.JobConfig)},
 			expected: false,
 		},
 		{
@@ -461,6 +464,7 @@ func TestCanUseMatrix(t *testing.T) {
 				"job1": {Stage: "test", Image: "node:14"},
 				"job2": {Stage: "test", Image: "node:16"},
 			},
+			config:   &parser.GitLabConfig{Jobs: make(map[string]*parser.JobConfig)},
 			expected: true,
 		},
 		{
@@ -480,13 +484,14 @@ func TestCanUseMatrix(t *testing.T) {
 					},
 				},
 			},
+			config:   &parser.GitLabConfig{Jobs: make(map[string]*parser.JobConfig)},
 			expected: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := canUseMatrix(tt.jobNames, tt.jobs)
+			result := canUseMatrix(tt.jobNames, tt.jobs, tt.config)
 			if result != tt.expected {
 				t.Errorf("canUseMatrix() = %v, expected %v", result, tt.expected)
 			}

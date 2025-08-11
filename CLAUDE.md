@@ -87,6 +87,7 @@ gitlab-smith/
 │   │   ├── config.go          # Configuration management
 │   │   ├── registry.go        # Rule registry system
 │   │   ├── types/             # Analysis result types
+│   │   ├── varexpand/         # GitLab CI variable expansion utility
 │   │   ├── performance/       # Performance analysis rules
 │   │   ├── security/          # Security analysis rules
 │   │   ├── reliability/       # Reliability analysis rules
@@ -140,9 +141,10 @@ gitlab-smith/
 
 1. **Parser Module** (`pkg/parser/`): Parses GitLab CI YAML and builds dependency graphs
 2. **Differ Module** (`pkg/differ/`): Performs semantic comparison between configurations
-3. **Analyzer Module** (`pkg/analyzer/`): Static analysis for common issues and optimizations
-4. **Deployer Module** (`pkg/deployer/`): Manages local GitLab instance deployment
-5. **Renderer Module** (`pkg/renderer/`): Renders and compares pipeline executions with visual diagram support
+3. **Analyzer Module** (`pkg/analyzer/`): Static analysis for common issues and optimizations with comprehensive variable expansion
+4. **Variable Expansion** (`pkg/analyzer/varexpand/`): Shared utility for accurate GitLab CI variable expansion across all analyzers
+5. **Deployer Module** (`pkg/deployer/`): Manages local GitLab instance deployment
+6. **Renderer Module** (`pkg/renderer/`): Renders and compares pipeline executions with visual diagram support
 
 ### Implementation Phases
 
