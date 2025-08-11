@@ -160,6 +160,6 @@
   },
   
   "build_status": "builds_clean",
-  "go_version": "1.19",
+  "go_version": "1.24",
   "dependencies": ["cobra", "yaml.v3"]
 }

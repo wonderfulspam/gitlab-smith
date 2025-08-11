@@ -465,7 +465,7 @@ func TestCompare_ComplexChanges(t *testing.T) {
 			"build": {
 				Stage:  "build",
 				Script: []string{"make build"},
-				Image:  "golang:1.19",
+				Image:  "golang:1.24",
 			},
 			"test": {
 				Stage:        "test",
@@ -474,7 +474,7 @@ func TestCompare_ComplexChanges(t *testing.T) {
 			},
 		},
 		Variables: map[string]interface{}{
-			"GO_VERSION": "1.19",
+			"GO_VERSION": "1.24",
 		},
 	}
 
