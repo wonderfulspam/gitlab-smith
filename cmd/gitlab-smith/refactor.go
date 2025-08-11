@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/emt/gitlab-smith/pkg/analyzer"
-	"github.com/emt/gitlab-smith/pkg/deployer"
-	"github.com/emt/gitlab-smith/pkg/differ"
-	"github.com/emt/gitlab-smith/pkg/parser"
-	"github.com/emt/gitlab-smith/pkg/renderer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/deployer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/differ"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/renderer"
 	"github.com/spf13/cobra"
 )
 

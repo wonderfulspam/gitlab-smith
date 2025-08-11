@@ -1,12 +1,12 @@
 package analyzer
 
 import (
-	"github.com/emt/gitlab-smith/pkg/analyzer/maintainability"
-	"github.com/emt/gitlab-smith/pkg/analyzer/performance"
-	"github.com/emt/gitlab-smith/pkg/analyzer/reliability"
-	"github.com/emt/gitlab-smith/pkg/analyzer/security"
-	"github.com/emt/gitlab-smith/pkg/analyzer/types"
-	"github.com/emt/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/maintainability"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/performance"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/reliability"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/security"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
 // Analyzer manages the analysis process with configurable checks

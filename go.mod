@@ -1,4 +1,4 @@
-module github.com/emt/gitlab-smith
+module github.com/wonderfulspam/gitlab-smith
 
 go 1.24
 

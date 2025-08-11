@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/emt/gitlab-smith/pkg/analyzer/types"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
 	"gopkg.in/yaml.v2"
 )
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/emt/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 	"github.com/spf13/cobra"
 )
 

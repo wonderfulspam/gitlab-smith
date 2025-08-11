@@ -1,7 +1,7 @@
 package analyzer
 
 import (
-	"github.com/emt/gitlab-smith/pkg/analyzer/types"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
 )
 
 // Re-export types for backwards compatibility

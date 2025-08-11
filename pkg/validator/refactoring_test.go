@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/emt/gitlab-smith/pkg/differ"
-	"github.com/emt/gitlab-smith/pkg/renderer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/differ"
+	"github.com/wonderfulspam/gitlab-smith/pkg/renderer"
 )
 
 // RefactoringScenario represents a complete refactoring test case

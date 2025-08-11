@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/emt/gitlab-smith/pkg/analyzer"
-	"github.com/emt/gitlab-smith/pkg/differ"
-	"github.com/emt/gitlab-smith/pkg/parser"
-	"github.com/emt/gitlab-smith/pkg/renderer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/differ"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/renderer"
 )
 
 // SimpleRefactoringCase represents a simple before/after test case

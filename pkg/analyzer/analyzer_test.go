@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/emt/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
 func TestAnalyze_EmptyConfig(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/emt/gitlab-smith/pkg/parser"
-	"github.com/emt/gitlab-smith/pkg/renderer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/renderer"
 	"github.com/spf13/cobra"
 )
 

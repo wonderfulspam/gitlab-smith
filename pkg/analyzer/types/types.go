@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/emt/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
 type IssueType string

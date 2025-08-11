@@ -3,7 +3,7 @@ package differ
 import (
 	"testing"
 
-	"github.com/emt/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
 func TestCompare_NoChanges(t *testing.T) {

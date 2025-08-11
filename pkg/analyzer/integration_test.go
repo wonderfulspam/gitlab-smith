@@ -3,7 +3,7 @@ package analyzer
 import (
 	"testing"
 
-	"github.com/emt/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
 // TestIntegrationAdvancedChecks tests the advanced check functionality 

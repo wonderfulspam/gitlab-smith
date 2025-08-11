@@ -3,8 +3,8 @@ package maintainability
 import (
 	"strings"
 
-	"github.com/emt/gitlab-smith/pkg/analyzer/types"
-	"github.com/emt/gitlab-smith/pkg/parser"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
 // CheckRegistry interface to avoid import cycles
