@@ -240,60 +240,16 @@ func DiscoverGoldStandardCases(casesPath string) ([]*GoldStandardCase, error) {
 		caseFile := filepath.Join(casesPath, fileName)
 
 		goldCase := &GoldStandardCase{
-			Name:         caseName,
-			Description:  GenerateGoldStandardDescription(caseName),
-			ConfigFile:   caseFile,
-			Expectations: GetGoldStandardExpectations(caseName),
-		}
-
-		configPath := filepath.Join(casesPath, caseName+".config.yaml")
-		if FileExists(configPath) {
-			config, err := LoadGoldStandardConfig(configPath)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load config for gold standard case %s: %w", caseName, err)
-			}
-			ApplyGoldStandardConfig(goldCase, config)
+			Name:        caseName,
+			Description: GenerateGoldStandardDescription(caseName),
+			ConfigFile:  caseFile,
+			// Gold standard cases don't need config files - they should always have zero issues
 		}
 
 		cases = append(cases, goldCase)
 	}
 
 	return cases, nil
-}
-
-// LoadGoldStandardConfig loads gold standard case configuration from YAML file
-func LoadGoldStandardConfig(configPath string) (*GoldStandardConfig, error) {
-	data, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var config GoldStandardConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, err
-	}
-
-	return &config, nil
-}
-
-// ApplyGoldStandardConfig applies configuration to a gold standard case
-func ApplyGoldStandardConfig(goldCase *GoldStandardCase, config *GoldStandardConfig) {
-	if config.Name != "" {
-		goldCase.Name = config.Name
-	}
-	if config.Description != "" {
-		goldCase.Description = config.Description
-	}
-
-	goldCase.Expectations = GoldStandardExpectations{
-		ShouldSucceed:             config.Expectations.ShouldSucceed,
-		MaxAllowedIssues:          config.Expectations.MaxAllowedIssues,
-		ExpectedZeroCategories:    config.Expectations.ExpectedZeroCategories,
-		ExpectedMinimalCategories: config.Expectations.ExpectedMinimalCategories,
-		AcceptableMinorIssues:     config.Expectations.AcceptableMinorIssues,
-		ExpectedJobs:              config.Expectations.ExpectedJobs,
-		GoldStandardFeatures:      config.GoldStandardFeatures,
-	}
 }
 
 // GenerateGoldStandardDescription generates a description for a gold standard case
@@ -309,28 +265,6 @@ func GenerateGoldStandardDescription(caseName string) string {
 		return desc
 	}
 	return fmt.Sprintf("Gold standard case: %s", caseName)
-}
-
-// GetGoldStandardExpectations returns default expectations for gold standard cases
-func GetGoldStandardExpectations(caseName string) GoldStandardExpectations {
-	return GoldStandardExpectations{
-		ShouldSucceed:             true,
-		MaxAllowedIssues:          3,
-		ExpectedZeroCategories:    []string{"security", "reliability"},
-		ExpectedMinimalCategories: map[string]int{"performance": 2, "maintainability": 1},
-		AcceptableMinorIssues:     []string{},
-		ExpectedJobs: ExpectedJobMetrics{
-			Total:               5,
-			Stages:              3,
-			ParallelCapable:     true,
-			HasDependencies:     false,
-			HasArtifacts:        false,
-			HasCaching:          false,
-			HasCoverage:         false,
-			HasSecurityScanning: false,
-		},
-		GoldStandardFeatures: []string{},
-	}
 }
 
 // FileExists checks if a file exists
