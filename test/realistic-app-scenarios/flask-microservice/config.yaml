@@ -1,0 +1,83 @@
+name: "flask-microservice"
+description: "Realistic Flask microservice with comprehensive CI/CD pipeline refactoring"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 15    # Actual improvement with current analyzer capabilities
+  max_allowed_new_issues: 2       # Matrix complexity might introduce minor issues
+  semantic_equivalence: false     # Matrix expansion changes job names and structure
+  performance_improvement: true   # Matrix consolidation and caching should improve performance
+  minimum_jobs_analyzed: 14       # Before: 16 jobs, After: 6 jobs (matrix expands to more)
+  
+  # Expected issue categories in BEFORE configuration
+  expected_issue_types:
+    performance: 25               # No caching, repeated setups, inefficient parallelism
+    security: 8                   # Latest tags, potential secrets in variables
+    maintainability: 15           # Massive duplication across lint/test/security/build jobs
+    reliability: 2                # Missing error handling, timeout issues
+  
+  # Core refactoring improvements this scenario demonstrates
+  required_improvements:
+    - "templates"                 # Template hierarchy with extends
+    - "consolidation"             # Job consolidation via matrix
+    - "extends"                   # Template inheritance pattern
+    - "variables"                 # Variable consolidation and parameterization
+  
+  # Expected refactoring patterns detected
+  expected_refactoring_patterns:
+    - "Lint jobs consolidated via matrix (4→1 jobs)"
+    - "Security jobs consolidated via matrix (3→1 jobs)"
+    - "Build jobs consolidated via matrix (2→1 jobs)"
+    - "Deploy jobs consolidated via matrix (2→1 jobs)"
+    - "Python setup templates created (.python_base_template → .python_dev_template)"
+    - "Docker build template extraction (.docker_build_template)"
+    - "Kubernetes deployment template (.kubernetes_deploy_template)"
+    - "Include structure for template organization"
+    - "Variable parameterization for environment-specific configs"
+  
+  # Specific duplication issues in BEFORE that should be detected
+  expected_before_issues:
+    - "Duplicate before_script blocks in jobs: lint:black, lint:isort, lint:flake8, lint:mypy"
+    - "Duplicate Python dependency installation across lint jobs"
+    - "Duplicate Docker setup in build:app and build:migrations"
+    - "Duplicate Kubernetes deployment logic in deploy:staging and deploy:production"
+    - "Duplicate security tool setup across security jobs"
+    - "Using 'latest' tag in Docker images"
+    - "Repeated apt-get and pip install commands"
+    - "Missing cache configuration for pip dependencies"
+  
+  # Expected improvements in AFTER configuration
+  expected_after_improvements:
+    - "Matrix strategy consolidates 16 jobs into 6 logical groups"
+    - "Template hierarchy eliminates setup duplication"
+    - "Include structure organizes templates logically"
+    - "Variable parameterization enables environment flexibility"
+    - "Consolidated dependency management"
+    - "Cleaner job definitions with extends pattern"
+  
+  # Realistic application context
+  application_context:
+    type: "flask-microservice"
+    complexity: "high"
+    job_categories: ["lint", "test", "security", "build", "deploy"]
+    before_job_count: 16
+    after_job_count: 6
+    line_reduction: "314→153 (51% reduction)"
+    primary_benefits: ["maintainability", "performance", "DRY_principle"]
+    
+  # Performance expectations
+  performance_improvements:
+    expected_parallelism_gain: 8    # Matrix jobs run in parallel
+    expected_setup_time_reduction: 60  # Template reuse reduces repeated setup
+    expected_maintenance_effort_reduction: 70  # DRY principle application
+    
+  # Template structure validation  
+  expected_template_hierarchy:
+    - ".python_base_template"
+    - ".python_dev_template extends .python_base_template"
+    - ".python_test_template extends .python_base_template"  
+    - ".python_integration_template extends .python_test_template"
+    - ".python_e2e_template extends .python_integration_template"
+    - ".python_security_template extends .python_base_template"
+    - ".docker_build_template"
+    - ".kubernetes_deploy_template"

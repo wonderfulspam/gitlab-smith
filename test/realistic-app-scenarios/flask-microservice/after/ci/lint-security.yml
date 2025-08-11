@@ -1,0 +1,2 @@
+# Lint and security job configurations
+# (Empty - jobs are defined in main .gitlab-ci.yml using templates)
