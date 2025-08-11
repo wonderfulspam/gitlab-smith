@@ -1,6 +1,10 @@
 package deployer
 
 import (
+	"bytes"
+	"os"
+	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -81,5 +85,123 @@ func TestDeploymentStatus(t *testing.T) {
 
 	if status.URL != "http://localhost:8080" {
 		t.Errorf("Expected URL to be 'http://localhost:8080', got '%s'", status.URL)
+	}
+}
+
+func TestCheckDockerAvailability(t *testing.T) {
+	deployer := New(nil)
+
+	originalPath := os.Getenv("PATH")
+	defer func() {
+		os.Setenv("PATH", originalPath)
+	}()
+
+	t.Run("docker available", func(t *testing.T) {
+		if _, err := exec.LookPath("docker"); err != nil {
+			t.Skip("Docker not available in PATH, skipping test")
+		}
+
+		err := deployer.checkDockerAvailability()
+		if err != nil && !strings.Contains(err.Error(), "Cannot connect to the Docker daemon") {
+			t.Errorf("Expected success or daemon connection error, got: %v", err)
+		}
+	})
+
+	t.Run("docker not available", func(t *testing.T) {
+		os.Setenv("PATH", "")
+
+		err := deployer.checkDockerAvailability()
+		if err == nil {
+			t.Error("Expected error when docker not available")
+		}
+
+		if !strings.Contains(err.Error(), "docker is not available") {
+			t.Errorf("Expected 'docker is not available' error, got: %v", err)
+		}
+	})
+}
+
+func TestCreateDataDirectories(t *testing.T) {
+	tmpDir := t.TempDir()
+	
+	config := &DeploymentConfig{
+		DataVolumePath:   tmpDir + "/data",
+		ConfigVolumePath: tmpDir + "/config", 
+		LogsVolumePath:   tmpDir + "/logs",
+	}
+
+	deployer := New(config)
+	
+	err := deployer.createDataDirectories()
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	// Check that directories were created
+	dirs := []string{config.DataVolumePath, config.ConfigVolumePath, config.LogsVolumePath}
+	for _, dir := range dirs {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			t.Errorf("Directory %s was not created", dir)
+		}
+	}
+}
+
+func TestCreateDataDirectoriesError(t *testing.T) {
+	config := &DeploymentConfig{
+		DataVolumePath: "/root/readonly/data", // Should fail on most systems
+	}
+
+	deployer := New(config)
+	
+	err := deployer.createDataDirectories()
+	if err == nil {
+		t.Error("Expected error when creating directory in readonly location")
+	}
+}
+
+func TestCleanup(t *testing.T) {
+	deployer := New(nil)
+	
+	err := deployer.cleanup()
+	if err != nil {
+		t.Errorf("Cleanup should not return error even if container doesn't exist, got: %v", err)
+	}
+}
+
+func TestGetLogsToBuffer(t *testing.T) {
+	deployer := New(nil)
+	var buf bytes.Buffer
+	
+	err := deployer.GetLogs(&buf, false)
+	if err == nil {
+		t.Error("Expected error when getting logs from non-existent container")
+	}
+}
+
+func TestGetStatusNonExistentContainer(t *testing.T) {
+	config := &DeploymentConfig{
+		ContainerName:    "non-existent-container-test-12345",
+		ExternalHostname: "localhost",
+		HTTPPort:         "8080",
+	}
+	
+	deployer := New(config)
+	
+	status, err := deployer.GetStatus()
+	if err != nil {
+		t.Fatalf("GetStatus should not return error, got: %v", err)
+	}
+	
+	if status.IsRunning {
+		t.Error("Expected IsRunning to be false for non-existent container")
+	}
+	
+	if status.ContainerName != config.ContainerName {
+		t.Errorf("Expected ContainerName %s, got %s", config.ContainerName, status.ContainerName)
+	}
+	
+	expectedURL := "http://localhost:8080"
+	if status.URL != expectedURL {
+		t.Errorf("Expected URL %s, got %s", expectedURL, status.URL)
 	}
 }

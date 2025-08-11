@@ -31,7 +31,7 @@ var parseCmd = &cobra.Command{
 			return fmt.Errorf("marshaling output: %w", err)
 		}
 
-		fmt.Println(string(output))
+		cmd.Println(string(output))
 		return nil
 	},
 }

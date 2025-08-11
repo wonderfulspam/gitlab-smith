@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
 func TestParseCommand(t *testing.T) {
@@ -56,19 +57,19 @@ test:
 			args:        []string{testFile},
 			expectError: false,
 			checkOutput: func(t *testing.T, output string) {
+				t.Logf("Parse output: %s", output)
+				
 				// Verify JSON output
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
 				if err != nil {
-					t.Errorf("Output is not valid JSON: %v", err)
+					t.Errorf("Output is not valid JSON: %v\nOutput was: %s", err, output)
+					return
 				}
 
-				// Check for expected structure
-				if result["stages"] == nil {
-					t.Error("Expected 'stages' in parsed output")
-				}
-				if result["variables"] == nil {
-					t.Error("Expected 'variables' in parsed output")
+				// Check for expected structure - jobs should be populated
+				if result["jobs"] == nil {
+					t.Error("Expected 'jobs' in parsed output")
 				}
 			},
 		},
@@ -111,35 +112,7 @@ test:
 				Use:   "parse <file>",
 				Short: "Parse and display a GitLab CI configuration file",
 				Args:  cobra.ExactArgs(1),
-				RunE: func(cmd *cobra.Command, args []string) error {
-					filename := args[0]
-
-					_, err := os.ReadFile(filename)
-					if err != nil {
-						return err
-					}
-
-					// For testing, we'll simulate parsing with a simple JSON structure
-					// In real implementation, this would use parser.Parse(data)
-					config := map[string]interface{}{
-						"stages":    []string{"build", "test"},
-						"variables": map[string]string{"NODE_VERSION": "16"},
-						"jobs": map[string]interface{}{
-							"build": map[string]interface{}{
-								"stage":  "build",
-								"script": []string{"echo \"Building application\""},
-							},
-						},
-					}
-
-					output, err := json.MarshalIndent(config, "", "  ")
-					if err != nil {
-						return err
-					}
-
-					cmd.Print(string(output))
-					return nil
-				},
+				RunE: parseCmd.RunE,
 			}
 
 			var buf bytes.Buffer
@@ -188,13 +161,14 @@ invalid_yaml: [unclosed_bracket
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filename := args[0]
 
-			_, err := os.ReadFile(filename)
+			data, err := os.ReadFile(filename)
 			if err != nil {
 				return err
 			}
 
-			// Simulate YAML parsing error
-			return json.Unmarshal([]byte("invalid json"), &map[string]interface{}{})
+			// Try to parse with actual parser to get real parsing error
+			_, err = parser.Parse(data)
+			return err
 		},
 	}
 

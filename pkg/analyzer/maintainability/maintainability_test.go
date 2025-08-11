@@ -336,6 +336,172 @@ func TestCheckDuplicatedBeforeScriptsSimilarity(t *testing.T) {
 	})
 }
 
+func TestCheckIncludeOptimization(t *testing.T) {
+	t.Run("Many includes", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Include: []parser.Include{
+				{Local: "ci/build.yml"},
+				{Local: "ci/test.yml"},
+				{Local: "ci/deploy.yml"},
+				{Local: "ci/security.yml"},
+				{Local: "ci/lint.yml"},
+				{Local: "ci/docs.yml"},
+			},
+		}
+
+		issues := CheckIncludeOptimization(config)
+
+		if len(issues) != 2 {
+			t.Errorf("Expected 2 issues (many includes + local consolidation), got %d", len(issues))
+		}
+
+		hasFragmentedConfig := false
+		hasLocalConsolidation := false
+		for _, issue := range issues {
+			if strings.Contains(issue.Message, "fragmented configuration") {
+				hasFragmentedConfig = true
+			}
+			if strings.Contains(issue.Message, "local includes could be consolidated") {
+				hasLocalConsolidation = true
+			}
+		}
+
+		if !hasFragmentedConfig {
+			t.Error("Expected fragmented configuration issue")
+		}
+		if !hasLocalConsolidation {
+			t.Error("Expected local consolidation issue")
+		}
+	})
+
+	t.Run("Normal include count", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Include: []parser.Include{
+				{Local: "ci/build.yml"},
+				{Local: "ci/test.yml"},
+			},
+		}
+
+		issues := CheckIncludeOptimization(config)
+
+		if len(issues) != 0 {
+			t.Errorf("Expected 0 issues for normal include count, got %d", len(issues))
+		}
+	})
+}
+
+func TestCheckJobNamingEdgeCases(t *testing.T) {
+	t.Run("Job names with spaces and length", func(t *testing.T) {
+		longName := "this_is_a_very_long_job_name_that_definitely_exceeds_sixty_three_characters_limit"
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"build project": { // Contains space
+					Stage: "build",
+				},
+				longName: { // Exceeds 63 characters
+					Stage: "test",
+				},
+			},
+		}
+
+		issues := CheckJobNaming(config)
+
+		// Should have issues for space and length
+		if len(issues) != 2 {
+			t.Errorf("Expected 2 issues (space + length), got %d", len(issues))
+		}
+
+		hasSpaceIssue := false
+		hasLengthIssue := false
+		for _, issue := range issues {
+			if strings.Contains(issue.Message, "contains spaces") {
+				hasSpaceIssue = true
+			}
+			if strings.Contains(issue.Message, "too long") {
+				hasLengthIssue = true
+			}
+		}
+
+		if !hasSpaceIssue {
+			t.Error("Expected space issue")
+		}
+		if !hasLengthIssue {
+			t.Error("Expected length issue")
+		}
+	})
+
+	t.Run("Valid job names", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"build": {
+					Stage: "build",
+				},
+				"test_unit": {
+					Stage: "test",
+				},
+				"deploy_production": {
+					Stage: "deploy",
+				},
+			},
+		}
+
+		issues := CheckJobNaming(config)
+
+		if len(issues) != 0 {
+			t.Errorf("Expected 0 issues for valid job names, got %d", len(issues))
+		}
+	})
+}
+
+func TestCheckScriptComplexityEdgeCases(t *testing.T) {
+	t.Run("Job without script", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"trigger": {
+					Stage: "deploy",
+					// Trigger jobs typically don't have scripts
+				},
+			},
+		}
+
+		issues := CheckScriptComplexity(config)
+
+		if len(issues) != 0 {
+			t.Errorf("Expected 0 issues for job without script, got %d", len(issues))
+		}
+	})
+
+	t.Run("Script with multiple concerns", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"complex_job": {
+					Stage: "deploy",
+					Script: []string{
+						"echo 'Building...'",
+						"npm run build",
+						"echo 'Testing...'",
+						"npm test",
+						"echo 'Deploying...'",
+						"kubectl apply -f deployment.yaml",
+						"curl -X POST https://api.example.com/webhook",
+						"docker push registry/image:latest",
+						"ssh user@server 'service restart app'",
+						"echo 'Done'",
+						"echo 'Cleanup'",
+					},
+				},
+			},
+		}
+
+		issues := CheckScriptComplexity(config)
+
+		// Should detect both complex script and hardcoded values
+		if len(issues) < 2 {
+			t.Errorf("Expected at least 2 issues (complexity + hardcoded values), got %d", len(issues))
+		}
+	})
+}
+
 // Helper function
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsSubstring(s, substr))
