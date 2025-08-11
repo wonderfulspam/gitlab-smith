@@ -13,7 +13,7 @@ by gemini-2.5-pro.
   - Add support for generating a visual representation of the pipeline (e.g., a DOT graph or a Mermaid diagram).
   - This will make it much easier to understand the impact of refactoring changes on the pipeline structure.
 
-- [ ] **Refactor Analyzer:**
+- [x] **Refactor Analyzer:**
   - The `analyzer` package has a large number of check functions. These should be refactored for better organization and extensibility.
   - Consider grouping checks by category (e.g., `performance`, `security`) into sub-packages.
   - Explore using a more data-driven approach to define the checks, which would make it easier to add new ones.

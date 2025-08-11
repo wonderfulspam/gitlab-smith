@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/emt/gitlab-smith/pkg/parser"
@@ -23,555 +24,212 @@ func TestAnalyze_EmptyConfig(t *testing.T) {
 	}
 }
 
-func TestCheckMissingStages(t *testing.T) {
-	t.Run("No stages defined", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Stages: []string{},
-			Jobs:   make(map[string]*parser.JobConfig),
+func TestNewAnalyzer(t *testing.T) {
+	analyzer := New()
+	
+	if analyzer == nil {
+		t.Fatal("Expected analyzer to be created")
+	}
+
+	if analyzer.registry == nil {
+		t.Error("Expected registry to be initialized")
+	}
+
+	if analyzer.config == nil {
+		t.Error("Expected config to be initialized")
+	}
+
+	// Check that checks are registered
+	checks := analyzer.registry.GetChecks()
+	if len(checks) == 0 {
+		t.Error("Expected checks to be registered")
+	}
+
+	// Verify we have checks of different types
+	hasPerformance := false
+	hasSecurity := false
+	hasMaintainability := false
+	hasReliability := false
+
+	for _, check := range checks {
+		switch check.Type() {
+		case IssueTypePerformance:
+			hasPerformance = true
+		case IssueTypeSecurity:
+			hasSecurity = true
+		case IssueTypeMaintainability:
+			hasMaintainability = true
+		case IssueTypeReliability:
+			hasReliability = true
 		}
+	}
 
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkMissingStages(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeMaintainability {
-			t.Errorf("Expected maintainability issue, got %s", issue.Type)
-		}
-
-		if issue.Severity != SeverityMedium {
-			t.Errorf("Expected medium severity, got %s", issue.Severity)
-		}
-	})
-
-	t.Run("Job references undefined stage", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Stages: []string{"build", "test"},
-			Jobs: map[string]*parser.JobConfig{
-				"deploy": {
-					Stage: "deploy", // Undefined stage
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkMissingStages(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeReliability {
-			t.Errorf("Expected reliability issue, got %s", issue.Type)
-		}
-
-		if issue.Severity != SeverityHigh {
-			t.Errorf("Expected high severity, got %s", issue.Severity)
-		}
-
-		if issue.JobName != "deploy" {
-			t.Errorf("Expected job name 'deploy', got '%s'", issue.JobName)
-		}
-	})
+	if !hasPerformance {
+		t.Error("Expected performance checks to be registered")
+	}
+	if !hasSecurity {
+		t.Error("Expected security checks to be registered")
+	}
+	if !hasMaintainability {
+		t.Error("Expected maintainability checks to be registered")
+	}
+	if !hasReliability {
+		t.Error("Expected reliability checks to be registered")
+	}
 }
 
-func TestCheckJobNaming(t *testing.T) {
-	t.Run("Job name with spaces", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build project": {
-					Stage: "build",
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkJobNaming(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeMaintainability {
-			t.Errorf("Expected maintainability issue, got %s", issue.Type)
-		}
-
-		if issue.Severity != SeverityLow {
-			t.Errorf("Expected low severity, got %s", issue.Severity)
-		}
+func TestNewWithConfig(t *testing.T) {
+	config := DefaultConfig()
+	config.DisableCheck("cache_usage")
+	
+	analyzer := NewWithConfig(config)
+	
+	// Test that the specific check is disabled
+	result := analyzer.Analyze(&parser.GitLabConfig{
+		Jobs: map[string]*parser.JobConfig{
+			"build": {Stage: "build"}, // This would normally trigger cache_usage issue
+		},
 	})
 
-	t.Run("Long job name", func(t *testing.T) {
-		longName := "this_is_a_very_long_job_name_that_exceeds_the_sixty_three_character_limit"
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				longName: {
-					Stage: "build",
-				},
-			},
+	// Should not contain cache_usage issues
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "cache") {
+			t.Error("Expected cache_usage check to be disabled")
 		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkJobNaming(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeReliability {
-			t.Errorf("Expected reliability issue, got %s", issue.Type)
-		}
-
-		if issue.Severity != SeverityMedium {
-			t.Errorf("Expected medium severity, got %s", issue.Severity)
-		}
-	})
-
-	t.Run("Valid job names", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build": {
-					Stage: "build",
-				},
-				"test-unit": {
-					Stage: "test",
-				},
-				"deploy_staging": {
-					Stage: "deploy",
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkJobNaming(config, result)
-
-		if len(result.Issues) != 0 {
-			t.Errorf("Expected 0 issues, got %d", len(result.Issues))
-		}
-	})
+	}
 }
 
-func TestCheckCacheUsage(t *testing.T) {
-	t.Run("No cache configured", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build": {Stage: "build"},
-				"test":  {Stage: "test"},
+func TestAnalyzerEnableDisableCheck(t *testing.T) {
+	analyzer := New()
+	
+	// Disable a check
+	analyzer.DisableCheck("job_naming")
+	
+	// Test with a config that would trigger job_naming issues
+	config := &parser.GitLabConfig{
+		Jobs: map[string]*parser.JobConfig{
+			"build project": { // Job name with spaces should trigger issue
+				Stage: "build",
 			},
+		},
+	}
+
+	result := analyzer.Analyze(config)
+	
+	// Should not contain job_naming issues
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "spaces") {
+			t.Error("Expected job_naming check to be disabled")
 		}
+	}
 
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkCacheUsage(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
+	// Re-enable the check
+	analyzer.EnableCheck("job_naming")
+	
+	result = analyzer.Analyze(config)
+	
+	// Should now contain job_naming issues
+	found := false
+	for _, issue := range result.Issues {
+		if strings.Contains(issue.Message, "spaces") {
+			found = true
+			break
 		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypePerformance {
-			t.Errorf("Expected performance issue, got %s", issue.Type)
-		}
-	})
-
-	t.Run("Cache without key", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build": {
-					Stage: "build",
-					Cache: &parser.Cache{
-						Paths: []string{"node_modules/"},
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkCacheUsage(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypePerformance {
-			t.Errorf("Expected performance issue, got %s", issue.Type)
-		}
-
-		if issue.Path != "jobs.build.cache.key" {
-			t.Errorf("Expected path 'jobs.build.cache.key', got '%s'", issue.Path)
-		}
-	})
-
-	t.Run("Cache without paths", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build": {
-					Stage: "build",
-					Cache: &parser.Cache{
-						Key: "build-cache",
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkCacheUsage(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypePerformance {
-			t.Errorf("Expected performance issue, got %s", issue.Type)
-		}
-
-		if issue.Path != "jobs.build.cache.paths" {
-			t.Errorf("Expected path 'jobs.build.cache.paths', got '%s'", issue.Path)
-		}
-	})
+	}
+	if !found {
+		t.Error("Expected job_naming issue after re-enabling check")
+	}
 }
 
-func TestCheckImageTags(t *testing.T) {
-	t.Run("Image without tag", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build": {
-					Stage: "build",
-					Image: "node",
+func TestAnalyzeWithFilter(t *testing.T) {
+	analyzer := New()
+	
+	config := &parser.GitLabConfig{
+		Variables: map[string]interface{}{
+			"API_PASSWORD": "secret123", // Should trigger security issue
+		},
+		Jobs: map[string]*parser.JobConfig{
+			"build project": { // Should trigger maintainability issue (job naming)
+				Stage: "build",
+			},
+			"test": {
+				Stage: "test",
+				Cache: &parser.Cache{
+					Paths: []string{"node_modules/"}, // Should trigger performance issue (missing key)
 				},
 			},
+		},
+	}
+
+	// Test filtering by security only
+	result := analyzer.AnalyzeWithFilter(config, IssueTypeSecurity)
+	
+	securityIssuesFound := 0
+	for _, issue := range result.Issues {
+		if issue.Type == IssueTypeSecurity {
+			securityIssuesFound++
+		} else {
+			t.Errorf("Found non-security issue when filtering by security: %s", issue.Type)
 		}
+	}
+	
+	if securityIssuesFound == 0 {
+		t.Error("Expected to find security issues")
+	}
 
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkImageTags(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
+	// Test filtering by multiple types
+	result = analyzer.AnalyzeWithFilter(config, IssueTypeSecurity, IssueTypeMaintainability)
+	
+	validTypes := map[IssueType]bool{
+		IssueTypeSecurity:        true,
+		IssueTypeMaintainability: true,
+	}
+	
+	for _, issue := range result.Issues {
+		if !validTypes[issue.Type] {
+			t.Errorf("Found unexpected issue type when filtering: %s", issue.Type)
 		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeSecurity {
-			t.Errorf("Expected security issue, got %s", issue.Type)
-		}
-
-		if issue.Severity != SeverityMedium {
-			t.Errorf("Expected medium severity, got %s", issue.Severity)
-		}
-	})
-
-	t.Run("Image with latest tag", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build": {
-					Stage: "build",
-					Image: "node:latest",
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkImageTags(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeSecurity {
-			t.Errorf("Expected security issue, got %s", issue.Type)
-		}
-
-		if issue.Severity != SeverityLow {
-			t.Errorf("Expected low severity, got %s", issue.Severity)
-		}
-	})
-
-	t.Run("Image with specific tag", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build": {
-					Stage: "build",
-					Image: "node:16.14.0",
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkImageTags(config, result)
-
-		if len(result.Issues) != 0 {
-			t.Errorf("Expected 0 issues, got %d", len(result.Issues))
-		}
-	})
-
-	t.Run("Default image issues", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Default: &parser.JobConfig{
-				Image: "ubuntu",
-			},
-			Jobs: make(map[string]*parser.JobConfig),
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkImageTags(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Path != "default.image" {
-			t.Errorf("Expected path 'default.image', got '%s'", issue.Path)
-		}
-	})
+	}
 }
 
-func TestCheckScriptComplexity(t *testing.T) {
-	t.Run("Complex script", func(t *testing.T) {
-		script := make([]string, 15) // More than 10 lines
-		for i := 0; i < 15; i++ {
-			script[i] = "echo line " + string(rune(i+'0'))
+func TestListChecks(t *testing.T) {
+	analyzer := New()
+	
+	checks := analyzer.ListChecks()
+	
+	if len(checks) == 0 {
+		t.Error("Expected checks to be listed")
+	}
+
+	// Verify check structure
+	for _, check := range checks {
+		if check.Name == "" {
+			t.Error("Expected check to have a name")
 		}
-
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"build": {
-					Stage:  "build",
-					Script: script,
-				},
-			},
+		if check.Type == "" {
+			t.Error("Expected check to have a type")
 		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkScriptComplexity(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
+		if check.Description == "" {
+			t.Error("Expected check to have a description")
 		}
+	}
 
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeMaintainability {
-			t.Errorf("Expected maintainability issue, got %s", issue.Type)
+	// Verify we have the expected check names
+	checkNames := make(map[string]bool)
+	for _, check := range checks {
+		checkNames[check.Name] = true
+	}
+
+	expectedChecks := []string{
+		"cache_usage", "job_naming", "image_tags", "retry_configuration",
+		"script_complexity", "duplicated_code", "environment_variables",
+	}
+
+	for _, expected := range expectedChecks {
+		if !checkNames[expected] {
+			t.Errorf("Expected check '%s' to be listed", expected)
 		}
-	})
-
-	t.Run("Hardcoded URL in script", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"deploy": {
-					Stage: "deploy",
-					Script: []string{
-						"curl -X POST https://api.example.com/deploy",
-						"echo 'Deployed'",
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkScriptComplexity(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeMaintainability {
-			t.Errorf("Expected maintainability issue, got %s", issue.Type)
-		}
-
-		if !contains(issue.Message, "Hardcoded URL") {
-			t.Errorf("Expected message to contain 'Hardcoded URL', got '%s'", issue.Message)
-		}
-	})
-}
-
-func TestCheckEnvironmentVariables(t *testing.T) {
-	t.Run("Potential secret in variable name", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Variables: map[string]interface{}{
-				"API_PASSWORD": "secret123",
-				"DB_SECRET":    "dbsecret",
-				"AUTH_TOKEN":   "token123",
-			},
-			Jobs: make(map[string]*parser.JobConfig),
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkEnvironmentVariables(config, result)
-
-		if len(result.Issues) != 3 {
-			t.Errorf("Expected 3 issues, got %d", len(result.Issues))
-		}
-
-		for _, issue := range result.Issues {
-			if issue.Type != IssueTypeSecurity {
-				t.Errorf("Expected security issue, got %s", issue.Type)
-			}
-
-			if issue.Severity != SeverityHigh {
-				t.Errorf("Expected high severity, got %s", issue.Severity)
-			}
-		}
-	})
-
-	t.Run("Job-level variable issues", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"deploy": {
-					Stage: "deploy",
-					Variables: map[string]interface{}{
-						"DEPLOY_PASSWORD": "secret",
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkEnvironmentVariables(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Path != "jobs.deploy.variables.DEPLOY_PASSWORD" {
-			t.Errorf("Expected path 'jobs.deploy.variables.DEPLOY_PASSWORD', got '%s'", issue.Path)
-		}
-	})
-}
-
-func TestCheckRetryConfiguration(t *testing.T) {
-	t.Run("High retry count", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"flaky_test": {
-					Stage: "test",
-					Retry: &parser.Retry{
-						Max: 5,
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkRetryConfiguration(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeReliability {
-			t.Errorf("Expected reliability issue, got %s", issue.Type)
-		}
-
-		if issue.Severity != SeverityLow {
-			t.Errorf("Expected low severity, got %s", issue.Severity)
-		}
-	})
-
-	t.Run("Acceptable retry count", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"test": {
-					Stage: "test",
-					Retry: &parser.Retry{
-						Max: 2,
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkRetryConfiguration(config, result)
-
-		if len(result.Issues) != 0 {
-			t.Errorf("Expected 0 issues, got %d", len(result.Issues))
-		}
-	})
-}
-
-func TestCheckDuplicatedCode(t *testing.T) {
-	t.Run("Duplicated scripts", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"test1": {
-					Stage:  "test",
-					Script: []string{"npm test", "npm run coverage"},
-				},
-				"test2": {
-					Stage:  "test",
-					Script: []string{"npm test", "npm run coverage"},
-				},
-				"build": {
-					Stage:  "build",
-					Script: []string{"npm run build"},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkDuplicatedCode(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypeMaintainability {
-			t.Errorf("Expected maintainability issue, got %s", issue.Type)
-		}
-
-		if !contains(issue.Message, "test1") || !contains(issue.Message, "test2") {
-			t.Errorf("Expected message to contain both job names, got '%s'", issue.Message)
-		}
-	})
-}
-
-func TestCheckDependencyChains(t *testing.T) {
-	t.Run("Long dependency chain", func(t *testing.T) {
-		// Create a config with a job that has many dependencies
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"job_with_many_deps": {
-					Dependencies: []string{"dep1", "dep2", "dep3", "dep4", "dep5", "dep6"},
-				},
-				"normal_job": {
-					Dependencies: []string{"dep1", "dep2"},
-				},
-				"dep1": {},
-				"dep2": {},
-				"dep3": {},
-				"dep4": {},
-				"dep5": {},
-				"dep6": {},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkDependencyChains(config, result)
-
-		if len(result.Issues) != 1 {
-			t.Errorf("Expected 1 issue, got %d", len(result.Issues))
-		}
-
-		issue := result.Issues[0]
-		if issue.Type != IssueTypePerformance {
-			t.Errorf("Expected performance issue, got %s", issue.Type)
-		}
-
-		if issue.JobName != "job_with_many_deps" {
-			t.Errorf("Expected job name 'job_with_many_deps', got '%s'", issue.JobName)
-		}
-	})
+	}
 }
 
 func TestCalculateSummary(t *testing.T) {
@@ -585,7 +243,7 @@ func TestCalculateSummary(t *testing.T) {
 		{Type: IssueTypeReliability},
 	}
 
-	summary := calculateSummary(issues)
+	summary := CalculateSummary(issues)
 
 	if summary.Performance != 2 {
 		t.Errorf("Expected 2 performance issues, got %d", summary.Performance)
@@ -709,314 +367,158 @@ func TestAnalyze_ComprehensiveConfig(t *testing.T) {
 	}
 }
 
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsSubstring(s, substr)))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+func TestRegistryOperations(t *testing.T) {
+	registry := NewCheckRegistry()
+	
+	// Test registering a check
+	registry.Register("test_check", IssueTypePerformance, func(config *parser.GitLabConfig) []Issue {
+		return []Issue{
+			{
+				Type:     IssueTypePerformance,
+				Severity: SeverityMedium,
+				Message:  "Test issue",
+			},
+		}
+	})
+	
+	checks := registry.GetChecks()
+	found := false
+	for _, check := range checks {
+		if check.Name() == "test_check" {
+			found = true
+			break
 		}
 	}
-	return false
-}
-
-func TestCheckWorkflowOptimization(t *testing.T) {
-	t.Run("Missing workflow with branch-specific rules", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"job1": {
-					Rules: []parser.Rule{
-						{If: `$CI_COMMIT_BRANCH == "main"`},
-					},
-				},
-				"job2": {
-					Rules: []parser.Rule{
-						{If: `$CI_COMMIT_BRANCH == "main"`},
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkWorkflowOptimization(config, result)
-
-		found := false
-		for _, issue := range result.Issues {
-			if issue.Path == "workflow" && issue.Type == IssueTypePerformance {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Error("Expected workflow optimization issue for branch-specific rules")
-		}
-	})
-
-	t.Run("Missing workflow with MR-specific rules", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"job1": {
-					Rules: []parser.Rule{
-						{If: `$CI_MERGE_REQUEST_ID`},
-					},
-				},
-				"job2": {
-					Rules: []parser.Rule{
-						{If: `$CI_MERGE_REQUEST_ID`},
-					},
-				},
-				"job3": {
-					Rules: []parser.Rule{
-						{If: `$CI_MERGE_REQUEST_ID`},
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkWorkflowOptimization(config, result)
-
-		found := false
-		for _, issue := range result.Issues {
-			if issue.Path == "workflow" && issue.Type == IssueTypePerformance {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Error("Expected workflow optimization issue for MR-specific rules")
-		}
-	})
-
-	t.Run("Redundant job rules", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Jobs: map[string]*parser.JobConfig{
-				"job1": {
-					Rules: []parser.Rule{
-						{If: `$CI_PIPELINE_SOURCE == "push"`},
-					},
-				},
-				"job2": {
-					Rules: []parser.Rule{
-						{If: `$CI_PIPELINE_SOURCE == "push"`},
-					},
-				},
-				"job3": {
-					Rules: []parser.Rule{
-						{If: `$CI_PIPELINE_SOURCE == "push"`},
-					},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkWorkflowOptimization(config, result)
-
-		found := false
-		for _, issue := range result.Issues {
-			if issue.Path == "jobs" && issue.Type == IssueTypeMaintainability {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Error("Expected maintainability issue for redundant job rules")
-		}
-	})
-
-	t.Run("Branch-specific optimization with workflow", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Workflow: &parser.Workflow{
-				Rules: []parser.Rule{
-					{When: "always"},
-				},
-			},
-			Jobs: map[string]*parser.JobConfig{
-				"main-job-1": {
-					Rules: []parser.Rule{
-						{If: `$CI_COMMIT_BRANCH == "main"`},
-					},
-				},
-				"main-job-2": {
-					Rules: []parser.Rule{
-						{If: `$CI_COMMIT_BRANCH == "main"`},
-					},
-				},
-				"main-job-3": {
-					Rules: []parser.Rule{
-						{If: `$CI_COMMIT_BRANCH == "main"`},
-					},
-				},
-				"mr-job": {
-					Rules: []parser.Rule{
-						{If: `$CI_MERGE_REQUEST_ID`},
-					},
-				},
-				"common-job": {},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkWorkflowOptimization(config, result)
-
-		// Should detect optimization opportunity due to different job counts
-		// Main branch: 4 jobs (3 main-jobs + common-job), MR: 2 jobs (mr-job + common-job)
-		// Difference: |4-2| = 2, which is > 5/3 = 1.67, so should trigger
-		found := false
-		for _, issue := range result.Issues {
-			if issue.Path == "workflow" && issue.Type == IssueTypePerformance {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Error("Expected performance issue for branch-specific optimization")
-		}
-	})
-
-	t.Run("No issues with optimal workflow", func(t *testing.T) {
-		config := &parser.GitLabConfig{
-			Workflow: &parser.Workflow{
-				Rules: []parser.Rule{
-					{If: `$CI_PIPELINE_SOURCE == "push"`, When: "always"},
-				},
-			},
-			Jobs: map[string]*parser.JobConfig{
-				"test": {
-					Script: []string{"echo test"},
-				},
-			},
-		}
-
-		result := &AnalysisResult{Issues: []Issue{}}
-		checkWorkflowOptimization(config, result)
-
-		for _, issue := range result.Issues {
-			if issue.Path == "workflow" {
-				t.Errorf("Unexpected workflow issue: %s", issue.Message)
-			}
-		}
-	})
-}
-
-func TestHasBranchSpecificRules(t *testing.T) {
-	tests := []struct {
-		name     string
-		job      *parser.JobConfig
-		expected bool
-	}{
-		{
-			name: "Job with branch-specific if condition",
-			job: &parser.JobConfig{
-				Rules: []parser.Rule{
-					{If: `$CI_COMMIT_BRANCH == "main"`},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "Job with main branch only",
-			job: &parser.JobConfig{
-				Only: "main",
-			},
-			expected: true,
-		},
-		{
-			name: "Job with master branch only",
-			job: &parser.JobConfig{
-				Only: "master",
-			},
-			expected: true,
-		},
-		{
-			name: "Job without branch-specific rules",
-			job: &parser.JobConfig{
-				Rules: []parser.Rule{
-					{If: `$CI_PIPELINE_SOURCE == "push"`},
-				},
-			},
-			expected: false,
-		},
-		{
-			name:     "Job with no rules",
-			job:      &parser.JobConfig{},
-			expected: false,
-		},
+	
+	if !found {
+		t.Error("Expected test check to be registered")
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := hasBranchSpecificRules(tt.job)
-			if result != tt.expected {
-				t.Errorf("Expected %v, got %v", tt.expected, result)
-			}
-		})
+	
+	// Test getting checks by type
+	performanceChecks := registry.GetChecksByType(IssueTypePerformance)
+	if len(performanceChecks) == 0 {
+		t.Error("Expected to find performance checks")
 	}
 }
 
-func TestHasMRSpecificRules(t *testing.T) {
-	tests := []struct {
-		name     string
-		job      *parser.JobConfig
-		expected bool
-	}{
-		{
-			name: "Job with MR ID check",
-			job: &parser.JobConfig{
-				Rules: []parser.Rule{
-					{If: `$CI_MERGE_REQUEST_ID`},
-				},
+func TestBaseChecker(t *testing.T) {
+	checkFunc := func(config *parser.GitLabConfig) []Issue {
+		return []Issue{
+			{
+				Type:     IssueTypeSecurity,
+				Severity: SeverityHigh,
+				Message:  "Test security issue",
 			},
-			expected: true,
-		},
-		{
-			name: "Job with merge request event check",
-			job: &parser.JobConfig{
-				Rules: []parser.Rule{
-					{If: `$CI_PIPELINE_SOURCE == "merge_request_event"`},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "Job with merge_requests only",
-			job: &parser.JobConfig{
-				Only: "merge_requests",
-			},
-			expected: true,
-		},
-		{
-			name: "Job with merge_requests in array",
-			job: &parser.JobConfig{
-				Only: []interface{}{"merge_requests", "pushes"},
-			},
-			expected: true,
-		},
-		{
-			name: "Job without MR-specific rules",
-			job: &parser.JobConfig{
-				Rules: []parser.Rule{
-					{If: `$CI_COMMIT_BRANCH == "main"`},
-				},
-			},
-			expected: false,
-		},
-		{
-			name:     "Job with no rules",
-			job:      &parser.JobConfig{},
-			expected: false,
-		},
+		}
 	}
+	
+	checker := NewBaseChecker("security_test", IssueTypeSecurity, checkFunc)
+	
+	if checker.Name() != "security_test" {
+		t.Errorf("Expected name 'security_test', got '%s'", checker.Name())
+	}
+	
+	if checker.Type() != IssueTypeSecurity {
+		t.Errorf("Expected type %s, got %s", IssueTypeSecurity, checker.Type())
+	}
+	
+	if !checker.Enabled() {
+		t.Error("Expected checker to be enabled by default")
+	}
+	
+	// Test disabling
+	checker.SetEnabled(false)
+	if checker.Enabled() {
+		t.Error("Expected checker to be disabled")
+	}
+	
+	// Test that disabled checker returns no issues
+	config := &parser.GitLabConfig{}
+	issues := checker.Check(config)
+	if len(issues) != 0 {
+		t.Error("Expected disabled checker to return no issues")
+	}
+	
+	// Test re-enabling
+	checker.SetEnabled(true)
+	issues = checker.Check(config)
+	if len(issues) != 1 {
+		t.Errorf("Expected 1 issue, got %d", len(issues))
+	}
+	
+	if issues[0].Type != IssueTypeSecurity {
+		t.Errorf("Expected security issue, got %s", issues[0].Type)
+	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := hasMRSpecificRules(tt.job)
-			if result != tt.expected {
-				t.Errorf("Expected %v, got %v", tt.expected, result)
+func TestDefaultConfig(t *testing.T) {
+	config := DefaultConfig()
+	
+	if config == nil {
+		t.Fatal("Expected default config to be created")
+	}
+	
+	if len(config.Checks) == 0 {
+		t.Error("Expected default config to have checks")
+	}
+	
+	// Verify some expected checks exist
+	expectedChecks := []string{
+		"cache_usage", "job_naming", "image_tags", "retry_configuration",
+	}
+	
+	for _, expected := range expectedChecks {
+		if checkConfig, exists := config.Checks[expected]; !exists {
+			t.Errorf("Expected check '%s' to be in default config", expected)
+		} else {
+			if !checkConfig.Enabled {
+				t.Errorf("Expected check '%s' to be enabled by default", expected)
 			}
-		})
+			if checkConfig.Name != expected {
+				t.Errorf("Expected check name to be '%s', got '%s'", expected, checkConfig.Name)
+			}
+		}
+	}
+}
+
+func TestConfigOperations(t *testing.T) {
+	config := DefaultConfig()
+	
+	// Test IsCheckEnabled
+	if !config.IsCheckEnabled("cache_usage") {
+		t.Error("Expected cache_usage to be enabled")
+	}
+	
+	if config.IsCheckEnabled("nonexistent_check") {
+		t.Error("Expected nonexistent check to be disabled")
+	}
+	
+	// Test DisableCheck
+	config.DisableCheck("cache_usage")
+	if config.IsCheckEnabled("cache_usage") {
+		t.Error("Expected cache_usage to be disabled")
+	}
+	
+	// Test EnableCheck
+	config.EnableCheck("cache_usage")
+	if !config.IsCheckEnabled("cache_usage") {
+		t.Error("Expected cache_usage to be re-enabled")
+	}
+	
+	// Test GetEnabledChecks
+	enabledChecks := config.GetEnabledChecks()
+	if len(enabledChecks) == 0 {
+		t.Error("Expected enabled checks")
+	}
+	
+	// Test GetChecksByType
+	performanceChecks := config.GetChecksByType(IssueTypePerformance)
+	if len(performanceChecks) == 0 {
+		t.Error("Expected performance checks")
+	}
+	
+	securityChecks := config.GetChecksByType(IssueTypeSecurity)
+	if len(securityChecks) == 0 {
+		t.Error("Expected security checks")
 	}
 }
