@@ -1,5 +1,5 @@
 # Binary
-gitlab-smith
+/gitlab-smith
 
 # Go build cache
 *.test
