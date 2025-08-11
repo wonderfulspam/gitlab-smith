@@ -1,9 +1,11 @@
 package validator
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer"
@@ -92,6 +94,11 @@ func (rv *RefactoringValidator) EnableFullTesting(deployerConfig *deployer.Deplo
 	rv.gitlabClient = NewGitLabClient(baseURL, "test-token")
 }
 
+// SetDeployer sets an existing deployer instance (for reusing already deployed GitLab)
+func (rv *RefactoringValidator) SetDeployer(deployer DeployerInterface) {
+	rv.deployer = deployer
+}
+
 // CompareConfigurations compares before and after GitLab CI configurations
 func (rv *RefactoringValidator) CompareConfigurations(beforeDir, afterDir string) (*RefactoringResult, error) {
 	// Parse before and after configurations
@@ -115,9 +122,21 @@ func (rv *RefactoringValidator) CompareConfigurations(beforeDir, afterDir string
 	afterAnalysis := analyzer.Analyze(afterConfig)
 	result.AnalysisImprovement = beforeAnalysis.TotalIssues - afterAnalysis.TotalIssues
 
-	// Compare pipeline executions
-	renderer := renderer.New(nil)
-	pipelineComparison, err := renderer.CompareConfigurations(beforeConfig, afterConfig)
+	// Compare pipeline executions - use GitLab API if available
+	var pipelineComparison *renderer.PipelineComparison
+
+	if rv.fullTestingEnabled && rv.gitlabClient != nil {
+		// Use GitLab API for actual pipeline rendering
+		fmt.Printf("Using GitLab API for pipeline rendering (full testing mode)\n")
+		rendererInstance := rv.createRendererWithGitLabAPI()
+		pipelineComparison, err = rv.comparePipelinesViaAPI(rendererInstance, beforeConfig, afterConfig)
+	} else {
+		// Use static simulation
+		fmt.Printf("Using static simulation for pipeline rendering\n")
+		rendererInstance := renderer.New(nil)
+		pipelineComparison, err = rendererInstance.CompareConfigurations(beforeConfig, afterConfig)
+	}
+
 	if err != nil {
 		return result, fmt.Errorf("pipeline comparison failed: %w", err)
 	}
@@ -133,6 +152,148 @@ func (rv *RefactoringValidator) CompareConfigurations(beforeDir, afterDir string
 	}
 
 	return result, nil
+}
+
+// createRendererWithGitLabAPI creates a renderer configured to use the GitLab API
+func (rv *RefactoringValidator) createRendererWithGitLabAPI() *renderer.Renderer {
+	if rv.gitlabClient == nil {
+		return renderer.New(nil)
+	}
+
+	// Extract GitLab client details for renderer
+	baseURL := rv.gitlabClient.(*GitLabClient).baseURL
+	token := rv.gitlabClient.(*GitLabClient).token
+
+	// Create GitLab client compatible with renderer
+	gitlabClient := renderer.NewGitLabClient(baseURL, token, "test-project")
+	return renderer.New(gitlabClient)
+}
+
+// comparePipelinesViaAPI uses the GitLab API to compare actual pipeline executions
+func (rv *RefactoringValidator) comparePipelinesViaAPI(r *renderer.Renderer, beforeConfig, afterConfig *parser.GitLabConfig) (*renderer.PipelineComparison, error) {
+	// Create temporary projects for before and after configurations
+	beforeProject, err := rv.createTempProject("before-config")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create before project: %w", err)
+	}
+	defer func() {
+		go func() {
+			time.Sleep(2 * time.Minute)
+			rv.gitlabClient.DeleteProject(beforeProject.ID)
+		}()
+	}()
+
+	afterProject, err := rv.createTempProject("after-config")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create after project: %w", err)
+	}
+	defer func() {
+		go func() {
+			time.Sleep(2 * time.Minute)
+			rv.gitlabClient.DeleteProject(afterProject.ID)
+		}()
+	}()
+
+	// Upload configurations and trigger pipelines
+	beforePipelineID, err := rv.uploadConfigAndTriggerPipeline(beforeProject.ID, beforeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to trigger before pipeline: %w", err)
+	}
+
+	afterPipelineID, err := rv.uploadConfigAndTriggerPipeline(afterProject.ID, afterConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to trigger after pipeline: %w", err)
+	}
+
+	// Wait for both pipelines to complete
+	beforePipeline, err := rv.gitlabClient.WaitForPipelineCompletion(beforeProject.ID, beforePipelineID.ID, 10*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("before pipeline failed to complete: %w", err)
+	}
+
+	afterPipeline, err := rv.gitlabClient.WaitForPipelineCompletion(afterProject.ID, afterPipelineID.ID, 10*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("after pipeline failed to complete: %w", err)
+	}
+
+	// Use renderer to compare the actual pipeline executions
+	ctx := context.Background()
+	comparison, err := r.ComparePipelines(ctx, beforePipeline.ID, afterPipeline.ID)
+	if err != nil {
+		return nil, fmt.Errorf("GitLab API pipeline comparison failed: %w", err)
+	}
+
+	return comparison, nil
+}
+
+// createTempProject creates a temporary GitLab project for testing
+func (rv *RefactoringValidator) createTempProject(namePrefix string) (*Project, error) {
+	projectName := fmt.Sprintf("gitlab-smith-%s-%d", namePrefix, time.Now().Unix())
+	return rv.gitlabClient.CreateProject(projectName, projectName)
+}
+
+// uploadConfigAndTriggerPipeline uploads a config and triggers a pipeline
+func (rv *RefactoringValidator) uploadConfigAndTriggerPipeline(projectID int, config *parser.GitLabConfig) (*Pipeline, error) {
+	// Convert config back to YAML for upload
+	yamlContent, err := rv.configToYAML(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert config to YAML: %w", err)
+	}
+
+	// Upload CI configuration
+	err = rv.gitlabClient.CreateFile(projectID, ".gitlab-ci.yml", yamlContent, "Add CI configuration")
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload CI config: %w", err)
+	}
+
+	// Trigger pipeline
+	return rv.gitlabClient.TriggerPipeline(projectID, "main")
+}
+
+// configToYAML converts a GitLab config back to YAML (simplified implementation)
+func (rv *RefactoringValidator) configToYAML(config *parser.GitLabConfig) (string, error) {
+	// This is a simplified YAML generation - in a real implementation,
+	// you might want to use a proper YAML marshaling library
+	var yamlLines []string
+
+	// Add stages
+	if len(config.Stages) > 0 {
+		yamlLines = append(yamlLines, "stages:")
+		for _, stage := range config.Stages {
+			yamlLines = append(yamlLines, fmt.Sprintf("  - %s", stage))
+		}
+		yamlLines = append(yamlLines, "")
+	}
+
+	// Add variables
+	if len(config.Variables) > 0 {
+		yamlLines = append(yamlLines, "variables:")
+		for k, v := range config.Variables {
+			yamlLines = append(yamlLines, fmt.Sprintf("  %s: %v", k, v))
+		}
+		yamlLines = append(yamlLines, "")
+	}
+
+	// Add jobs (simplified - just basic structure)
+	for jobName, job := range config.Jobs {
+		if job == nil || strings.HasPrefix(jobName, ".") {
+			continue
+		}
+
+		yamlLines = append(yamlLines, fmt.Sprintf("%s:", jobName))
+		if job.Stage != "" {
+			yamlLines = append(yamlLines, fmt.Sprintf("  stage: %s", job.Stage))
+		}
+		if len(job.Script) > 0 {
+			yamlLines = append(yamlLines, "  script:")
+			for _, line := range job.Script {
+				yamlLines = append(yamlLines, fmt.Sprintf("    - %s", line))
+			}
+		}
+		yamlLines = append(yamlLines, "")
+	}
+
+	return strings.Join(yamlLines, "\n"), nil
 }
 
 // parseConfiguration parses a GitLab CI configuration from a directory

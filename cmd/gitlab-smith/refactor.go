@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer"
@@ -12,6 +13,7 @@ import (
 	"github.com/wonderfulspam/gitlab-smith/pkg/differ"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 	"github.com/wonderfulspam/gitlab-smith/pkg/renderer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/validator"
 )
 
 var refactorCmd = &cobra.Command{
@@ -349,15 +351,53 @@ func runFullTestMode() error {
 		}
 	}
 
-	// Perform pipeline execution simulation
-	fmt.Println("🎭 Running pipeline execution simulation...")
-	r := renderer.New(nil) // GitLab client will be added later for real pipeline testing
-	pipelineComparison, err := r.CompareConfigurations(oldConfig, newConfig)
+	// Perform actual GitLab API pipeline testing
+	fmt.Println("🎭 Running GitLab API pipeline testing...")
+
+	// Create temporary directories for before/after configs
+	beforeDir, err := os.MkdirTemp("", "gitlab-smith-before-*")
 	if err != nil {
 		deploy.Destroy()
-		return fmt.Errorf("pipeline comparison failed: %w", err)
+		return fmt.Errorf("failed to create temp directory for before config: %w", err)
 	}
-	result.PipelineComparison = pipelineComparison
+	defer os.RemoveAll(beforeDir)
+
+	afterDir, err := os.MkdirTemp("", "gitlab-smith-after-*")
+	if err != nil {
+		deploy.Destroy()
+		return fmt.Errorf("failed to create temp directory for after config: %w", err)
+	}
+	defer os.RemoveAll(afterDir)
+
+	// Write configs to temp directories
+	beforeConfigPath := filepath.Join(beforeDir, ".gitlab-ci.yml")
+	afterConfigPath := filepath.Join(afterDir, ".gitlab-ci.yml")
+
+	if err := os.WriteFile(beforeConfigPath, oldData, 0644); err != nil {
+		deploy.Destroy()
+		return fmt.Errorf("failed to write before config: %w", err)
+	}
+
+	if err := os.WriteFile(afterConfigPath, newData, 0644); err != nil {
+		deploy.Destroy()
+		return fmt.Errorf("failed to write after config: %w", err)
+	}
+
+	// Use the validator with full testing enabled
+	validator := validator.NewRefactoringValidator()
+	deployerConfig := deployer.DefaultConfig()
+	validator.EnableFullTesting(deployerConfig)
+
+	// Set the already deployed instance
+	validator.SetDeployer(deploy)
+
+	validationResult, err := validator.CompareConfigurations(beforeDir, afterDir)
+	if err != nil {
+		deploy.Destroy()
+		return fmt.Errorf("GitLab API validation failed: %w", err)
+	}
+
+	result.PipelineComparison = validationResult.PipelineComparison
 
 	// Generate output
 	var output []byte

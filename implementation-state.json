@@ -1,11 +1,11 @@
 {
   "project": "GitLabSmith",
-  "version": "0.9.0", 
+  "version": "0.9.5", 
   "last_updated": "2025-08-11",
   
   "phase_status": {
     "phase_1_core_analysis": "✅ completed",
-    "phase_2_local_gitlab": "🚧 partial - GitLab deploys but not used for pipeline rendering",
+    "phase_2_local_gitlab": "🚧 partial - GitLab API integration code ready but not tested with real instance",
     "phase_3_performance_testing": "⏳ not_started"
   },
   
@@ -17,9 +17,9 @@
   
   "missing_features": {
     "gitlab_api_integration": {
-      "status": "❌ not_implemented", 
+      "status": "🚧 partial - code ready, needs real GitLab instance testing", 
       "priority": "HIGH",
-      "impact": "GitLab deploys but pipeline rendering still uses static parser instead of GitLab API"
+      "impact": "GitLab API integration code implemented but not validated against real instance due to deployment time constraints"
     },
     "matrix_strategies": {
       "status": "❌ not_implemented",
@@ -40,11 +40,30 @@
   },
 
   "next_priorities": [
-    "1. Complete Phase 2: GitLab API integration for actual pipeline rendering",
-    "2. Implement matrix parallel job strategies",
+    "1. Complete GitLab API integration testing with real GitLab instance",
+    "2. Implement matrix parallel job strategies (high impact for modern CI/CD)",
     "3. Enhanced file changes/exists evaluation in rules", 
-    "4. Phase 3 performance testing with actual GitLab runner deployment"
+    "4. Phase 3 performance testing with actual GitLab runner deployment",
+    "5. Implement missing job types (trigger, pages, release)"
   ],
+
+  "phase_2_details": {
+    "completed": [
+      "GitLab API client implementation in validator/gitlab_client.go",
+      "Renderer GitLab API integration for pipeline fetching",
+      "Validator GitLab API integration for actual pipeline testing",
+      "CLI full-test mode implementation",
+      "Explicit GitLab vs static mode selection (no silent fallbacks)",
+      "Complete pipeline comparison workflow using real GitLab API"
+    ],
+    "needs_testing": [
+      "Real GitLab instance deployment and readiness detection",
+      "API authentication and project creation",
+      "Pipeline triggering and execution monitoring",
+      "Actual vs simulated pipeline comparison validation"
+    ],
+    "deployment_notes": "GitLab CE Docker image (~2GB) takes significant time to download and start. Implementation code is complete and ready for testing when GitLab instance is available."
+  },
 
   "test_status": "✅ All 223+ tests passing",
   "build_status": "✅ Clean"
