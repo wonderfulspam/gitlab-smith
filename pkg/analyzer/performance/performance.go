@@ -225,7 +225,7 @@ func CheckMissingNeeds(config *parser.GitLabConfig) []types.Issue {
 	if needsOpportunities > 2 {
 		issues = append(issues, types.Issue{
 			Type:       types.IssueTypePerformance,
-			Severity:   types.SeverityMedium,
+			Severity:   types.SeverityLow,
 			Path:       "jobs.*.dependencies",
 			Message:    fmt.Sprintf("Found %d jobs using dependencies that could benefit from 'needs' for better parallelization", needsOpportunities),
 			Suggestion: "Consider using 'needs' instead of 'dependencies' for more granular job control and better parallelization",

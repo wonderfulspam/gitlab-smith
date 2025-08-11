@@ -59,7 +59,7 @@ format:
   script:
     - rustup component add rustfmt
     - cargo fmt -- --check
-  dependencies:
+  needs:
     - setup
 
 # Linting with Clippy
@@ -68,7 +68,7 @@ clippy:
   script:
     - rustup component add clippy
     - cargo clippy --all-targets --all-features -- -D warnings
-  dependencies:
+  needs:
     - setup
 
 # Matrix testing across Rust versions
@@ -98,7 +98,7 @@ test:
     paths:
       - coverage.xml
     expire_in: 30 days
-  dependencies:
+  needs:
     - setup
 
 # Documentation tests
@@ -106,7 +106,7 @@ test:docs:
   stage: test
   script:
     - cargo test --doc
-  dependencies:
+  needs:
     - setup
 
 # Benchmarking
@@ -118,7 +118,7 @@ benchmark:
     paths:
       - target/criterion/
     expire_in: 1 week
-  dependencies:
+  needs:
     - setup
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -146,7 +146,7 @@ build:
     paths:
       - binaries/
     expire_in: 1 week
-  dependencies:
+  needs:
     - setup
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -164,7 +164,7 @@ security:audit:
       sast: audit-report.json
     when: always
     expire_in: 1 week
-  dependencies:
+  needs:
     - setup
   allow_failure: true
 
@@ -181,7 +181,7 @@ security:licenses:
     paths:
       - licenses.json
     expire_in: 1 week
-  dependencies:
+  needs:
     - setup
   allow_failure: true
 
@@ -197,7 +197,7 @@ security:dependencies:
     paths:
       - dependency-tree.txt
     expire_in: 1 week
-  dependencies:
+  needs:
     - setup
 
 # Release binary artifacts
@@ -216,7 +216,7 @@ release:artifacts:
     paths:
       - binaries/*.tar.gz
     expire_in: 30 days
-  dependencies:
+  needs:
     - build
   rules:
     - if: $CI_COMMIT_TAG
@@ -245,7 +245,7 @@ docker:build:
         docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
         docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
       fi
-  dependencies:
+  needs:
     - build
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

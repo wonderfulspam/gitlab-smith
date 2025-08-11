@@ -1,6 +1,7 @@
 package security
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
@@ -61,10 +62,24 @@ func CheckEnvironmentVariables(config *parser.GitLabConfig) []types.Issue {
 
 	// Check for potential security issues in variable names
 	checkVars := func(vars map[string]interface{}, path string) {
-		for varName := range vars {
-			if strings.Contains(strings.ToLower(varName), "password") ||
-				strings.Contains(strings.ToLower(varName), "secret") ||
-				strings.Contains(strings.ToLower(varName), "token") {
+		for varName, value := range vars {
+			varLower := strings.ToLower(varName)
+
+			// Skip test/development variables that are obviously test data
+			isTestVar := strings.Contains(varLower, "test") ||
+				strings.Contains(varLower, "dev") ||
+				strings.Contains(varLower, "example") ||
+				strings.Contains(varLower, "demo")
+
+			// Skip variables with obvious test values
+			valueStr := fmt.Sprintf("%v", value)
+			isTestValue := valueStr == "test" || valueStr == "example" ||
+				valueStr == "demo"
+
+			if !isTestVar && !isTestValue &&
+				(strings.Contains(varLower, "password") ||
+					strings.Contains(varLower, "secret") ||
+					strings.Contains(varLower, "token")) {
 				issues = append(issues, types.Issue{
 					Type:       types.IssueTypeSecurity,
 					Severity:   types.SeverityHigh,

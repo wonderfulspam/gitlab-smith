@@ -5,10 +5,16 @@ image: python:3.11-slim
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  POSTGRES_PASSWORD: "postgres"
   POSTGRES_USER: "postgres"
   POSTGRES_DB: "test_db"
   DJANGO_SETTINGS_MODULE: "myproject.settings.test"
+  # Use GitLab's built-in postgres service default auth
+  DATABASE_URL: "postgresql://postgres@postgres:5432/test_db"
+
+# Template for Python jobs that need venv
+.python_job:
+  before_script:
+    - source venv/bin/activate
 
 # Smart caching for Python dependencies
 cache:
@@ -59,16 +65,15 @@ dependencies:
 
 # Code quality checks
 code-quality:
+  extends: .python_job
   stage: quality
-  before_script:
-    - source venv/bin/activate
   script:
     - black --check .
     - isort --check-only .
     - flake8 .
     - mypy .
     - bandit -r . -f json -o bandit-report.json
-  dependencies:
+  needs:
     - dependencies
   artifacts:
     reports:
@@ -85,8 +90,6 @@ test:
   image: python:${PYTHON_VERSION}-slim
   services:
     - postgres:13-alpine
-  variables:
-    DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/test_db"
   before_script:
     - apt-get update -qq && apt-get install -y -qq git
     - pip install --upgrade pip
@@ -110,12 +113,11 @@ test:
 
 # Security scanning
 security:safety:
+  extends: .python_job
   stage: security
-  before_script:
-    - source venv/bin/activate
   script:
     - safety check --json --output safety-report.json
-  dependencies:
+  needs:
     - dependencies
   artifacts:
     reports:
@@ -126,7 +128,7 @@ security:safety:
 
 security:semgrep:
   stage: security
-  image: returntocorp/semgrep:latest
+  image: returntocorp/semgrep:1.45.0
   script:
     - semgrep --config=auto --json --output=semgrep-report.json .
   artifacts:
@@ -138,18 +140,15 @@ security:semgrep:
 
 # Database migration check
 migrations:
+  extends: .python_job
   stage: test
   services:
     - postgres:13-alpine
-  variables:
-    DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/test_db"
-  before_script:
-    - source venv/bin/activate
   script:
     - python manage.py makemigrations --check --dry-run
     - python manage.py migrate
     - python manage.py check
-  dependencies:
+  needs:
     - dependencies
 
 # Build Docker image
@@ -171,6 +170,10 @@ docker:build:
         docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
         docker push $CI_REGISTRY_IMAGE:latest
       fi
+  needs:
+    - test
+    - code-quality
+    - migrations
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
@@ -178,7 +181,7 @@ docker:build:
 # Deploy to staging
 deploy:staging:
   stage: deploy
-  image: alpine:latest
+  image: alpine:3.18
   before_script:
     - apk add --no-cache curl
   script:
@@ -187,5 +190,7 @@ deploy:staging:
   environment:
     name: staging
     url: https://staging.example.com
+  needs:
+    - docker:build
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
