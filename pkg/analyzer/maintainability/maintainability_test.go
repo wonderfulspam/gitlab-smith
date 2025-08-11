@@ -1,6 +1,7 @@
 package maintainability
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
@@ -174,6 +175,163 @@ func TestCheckStagesDefinition(t *testing.T) {
 
 		if issue.Severity != types.SeverityMedium {
 			t.Errorf("Expected medium severity, got %s", issue.Severity)
+		}
+	})
+}
+
+func TestCheckDuplicatedCacheConfig(t *testing.T) {
+	t.Run("Duplicate cache configurations", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"build": {
+					Stage: "build",
+					Cache: &parser.Cache{
+						Key:   "$CI_COMMIT_REF_SLUG",
+						Paths: []string{"node_modules/", ".npm/"},
+					},
+				},
+				"test": {
+					Stage: "test",
+					Cache: &parser.Cache{
+						Key:   "$CI_COMMIT_REF_SLUG",
+						Paths: []string{"node_modules/", ".npm/"},
+					},
+				},
+				"deploy": {
+					Stage: "deploy",
+					Cache: &parser.Cache{
+						Key:   "$CI_COMMIT_REF_SLUG",
+						Paths: []string{"node_modules/", ".npm/"},
+					},
+				},
+			},
+		}
+
+		issues := CheckDuplicatedCacheConfig(config)
+
+		if len(issues) != 1 {
+			t.Errorf("Expected 1 issue for duplicate cache, got %d", len(issues))
+		}
+
+		if !strings.Contains(issues[0].Message, "Duplicate cache configuration") {
+			t.Errorf("Expected duplicate cache message, got: %s", issues[0].Message)
+		}
+	})
+}
+
+func TestCheckDuplicatedImageConfig(t *testing.T) {
+	t.Run("Duplicate image configurations", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"build": {
+					Stage: "build",
+					Image: "node:16",
+				},
+				"test": {
+					Stage: "test",
+					Image: "node:16",
+				},
+				"lint": {
+					Stage: "test",
+					Image: "node:16",
+				},
+			},
+		}
+
+		issues := CheckDuplicatedImageConfig(config)
+
+		if len(issues) != 1 {
+			t.Errorf("Expected 1 issue for duplicate image, got %d", len(issues))
+		}
+
+		if !strings.Contains(issues[0].Message, "Duplicate image configuration") {
+			t.Errorf("Expected duplicate image message, got: %s", issues[0].Message)
+		}
+	})
+}
+
+func TestCheckDuplicatedSetup(t *testing.T) {
+	t.Run("Duplicate setup commands", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"build": {
+					Stage: "build",
+					Script: []string{
+						"npm ci --cache .npm",
+						"npm run build",
+					},
+				},
+				"test": {
+					Stage: "test",
+					Script: []string{
+						"npm ci --cache .npm",
+						"npm test",
+					},
+				},
+			},
+		}
+
+		issues := CheckDuplicatedSetup(config)
+
+		if len(issues) == 0 {
+			t.Errorf("Expected at least 1 issue for duplicate setup, got %d", len(issues))
+		}
+
+		foundDuplicateSetup := false
+		for _, issue := range issues {
+			if strings.Contains(issue.Message, "Duplicate setup configuration") {
+				foundDuplicateSetup = true
+				break
+			}
+		}
+
+		if !foundDuplicateSetup {
+			t.Errorf("Expected duplicate setup configuration issue")
+		}
+	})
+}
+
+func TestCheckDuplicatedBeforeScriptsSimilarity(t *testing.T) {
+	t.Run("Similar before_script blocks", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"build": {
+					Stage: "build",
+					BeforeScript: []string{
+						"echo 'Starting build'",
+						"apt-get update",
+						"apt-get install -y git",
+						"npm ci",
+					},
+				},
+				"test": {
+					Stage: "test",
+					BeforeScript: []string{
+						"echo 'Starting test'",
+						"apt-get update",
+						"apt-get install -y git",
+						"npm ci",
+					},
+				},
+			},
+		}
+
+		issues := CheckDuplicatedBeforeScripts(config)
+
+		if len(issues) == 0 {
+			t.Errorf("Expected at least 1 issue for similar before_scripts, got %d", len(issues))
+		}
+
+		foundSimilar := false
+		for _, issue := range issues {
+			if strings.Contains(issue.Message, "Similar before_script blocks") {
+				foundSimilar = true
+				break
+			}
+		}
+
+		if !foundSimilar {
+			t.Errorf("Expected similar before_script blocks issue")
 		}
 	})
 }
