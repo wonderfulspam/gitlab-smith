@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
@@ -55,7 +56,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func outputAnalysisJSON(cmd *cobra.Command, result *analyzer.AnalysisResult, filePath string) error {
+func outputAnalysisJSON(cmd *cobra.Command, result *types.AnalysisResult, filePath string) error {
 	output := map[string]interface{}{
 		"file":     filePath,
 		"analysis": result,
@@ -66,7 +67,7 @@ func outputAnalysisJSON(cmd *cobra.Command, result *analyzer.AnalysisResult, fil
 	return encoder.Encode(output)
 }
 
-func outputAnalysisTable(cmd *cobra.Command, result *analyzer.AnalysisResult, filePath string) error {
+func outputAnalysisTable(cmd *cobra.Command, result *types.AnalysisResult, filePath string) error {
 	out := cmd.OutOrStdout()
 
 	fmt.Fprintf(out, "GitLab CI Analysis Report\n")
@@ -89,11 +90,11 @@ func outputAnalysisTable(cmd *cobra.Command, result *analyzer.AnalysisResult, fi
 	}
 
 	// Group issues by severity
-	severityOrder := []analyzer.Severity{analyzer.SeverityHigh, analyzer.SeverityMedium, analyzer.SeverityLow}
-	severityLabels := map[analyzer.Severity]string{
-		analyzer.SeverityHigh:   "🔴 HIGH",
-		analyzer.SeverityMedium: "🟡 MEDIUM",
-		analyzer.SeverityLow:    "🟢 LOW",
+	severityOrder := []types.Severity{types.SeverityHigh, types.SeverityMedium, types.SeverityLow}
+	severityLabels := map[types.Severity]string{
+		types.SeverityHigh:   "🔴 HIGH",
+		types.SeverityMedium: "🟡 MEDIUM",
+		types.SeverityLow:    "🟢 LOW",
 	}
 
 	for _, severity := range severityOrder {

@@ -88,13 +88,13 @@ func (a *Analyzer) Analyze(config *parser.GitLabConfig) *types.AnalysisResult {
 }
 
 // AnalyzeWithFilter performs analysis with type filtering
-func (a *Analyzer) AnalyzeWithFilter(config *parser.GitLabConfig, issueTypes ...IssueType) *types.AnalysisResult {
+func (a *Analyzer) AnalyzeWithFilter(config *parser.GitLabConfig, issueTypes ...types.IssueType) *types.AnalysisResult {
 	result := &types.AnalysisResult{
 		Issues: []types.Issue{},
 	}
 
 	// Create a map for quick lookup
-	typeFilter := make(map[IssueType]bool)
+	typeFilter := make(map[types.IssueType]bool)
 	for _, t := range issueTypes {
 		typeFilter[t] = true
 	}
@@ -108,7 +108,7 @@ func (a *Analyzer) AnalyzeWithFilter(config *parser.GitLabConfig, issueTypes ...
 	}
 
 	result.TotalIssues = len(result.Issues)
-	result.Summary = CalculateSummary(result.Issues)
+	result.Summary = types.CalculateSummary(result.Issues)
 
 	return result
 }
@@ -136,8 +136,8 @@ func (a *Analyzer) GetRegistry() *CheckRegistry {
 }
 
 // ListChecks returns information about all available checks
-func (a *Analyzer) ListChecks() []CheckConfig {
-	var checks []CheckConfig
+func (a *Analyzer) ListChecks() []types.CheckConfig {
+	var checks []types.CheckConfig
 	for _, checker := range a.registry.GetChecks() {
 		if config, exists := a.config.Checks[checker.Name()]; exists {
 			checks = append(checks, config)

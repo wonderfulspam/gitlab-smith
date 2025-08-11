@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
@@ -53,13 +54,13 @@ func TestNewAnalyzer(t *testing.T) {
 
 	for _, check := range checks {
 		switch check.Type() {
-		case IssueTypePerformance:
+		case types.IssueTypePerformance:
 			hasPerformance = true
-		case IssueTypeSecurity:
+		case types.IssueTypeSecurity:
 			hasSecurity = true
-		case IssueTypeMaintainability:
+		case types.IssueTypeMaintainability:
 			hasMaintainability = true
-		case IssueTypeReliability:
+		case types.IssueTypeReliability:
 			hasReliability = true
 		}
 	}
@@ -162,11 +163,11 @@ func TestAnalyzeWithFilter(t *testing.T) {
 	}
 
 	// Test filtering by security only
-	result := analyzer.AnalyzeWithFilter(config, IssueTypeSecurity)
+	result := analyzer.AnalyzeWithFilter(config, types.IssueTypeSecurity)
 
 	securityIssuesFound := 0
 	for _, issue := range result.Issues {
-		if issue.Type == IssueTypeSecurity {
+		if issue.Type == types.IssueTypeSecurity {
 			securityIssuesFound++
 		} else {
 			t.Errorf("Found non-security issue when filtering by security: %s", issue.Type)
@@ -178,11 +179,11 @@ func TestAnalyzeWithFilter(t *testing.T) {
 	}
 
 	// Test filtering by multiple types
-	result = analyzer.AnalyzeWithFilter(config, IssueTypeSecurity, IssueTypeMaintainability)
+	result = analyzer.AnalyzeWithFilter(config, types.IssueTypeSecurity, types.IssueTypeMaintainability)
 
-	validTypes := map[IssueType]bool{
-		IssueTypeSecurity:        true,
-		IssueTypeMaintainability: true,
+	validTypes := map[types.IssueType]bool{
+		types.IssueTypeSecurity:        true,
+		types.IssueTypeMaintainability: true,
 	}
 
 	for _, issue := range result.Issues {
@@ -233,17 +234,17 @@ func TestListChecks(t *testing.T) {
 }
 
 func TestCalculateSummary(t *testing.T) {
-	issues := []Issue{
-		{Type: IssueTypePerformance},
-		{Type: IssueTypePerformance},
-		{Type: IssueTypeSecurity},
-		{Type: IssueTypeMaintainability},
-		{Type: IssueTypeMaintainability},
-		{Type: IssueTypeMaintainability},
-		{Type: IssueTypeReliability},
+	issues := []types.Issue{
+		{Type: types.IssueTypePerformance},
+		{Type: types.IssueTypePerformance},
+		{Type: types.IssueTypeSecurity},
+		{Type: types.IssueTypeMaintainability},
+		{Type: types.IssueTypeMaintainability},
+		{Type: types.IssueTypeMaintainability},
+		{Type: types.IssueTypeReliability},
 	}
 
-	summary := CalculateSummary(issues)
+	summary := types.CalculateSummary(issues)
 
 	if summary.Performance != 2 {
 		t.Errorf("Expected 2 performance issues, got %d", summary.Performance)
@@ -263,46 +264,46 @@ func TestCalculateSummary(t *testing.T) {
 }
 
 func TestFilterBySeverity(t *testing.T) {
-	result := &AnalysisResult{
-		Issues: []Issue{
-			{Severity: SeverityHigh, Type: IssueTypeSecurity},
-			{Severity: SeverityMedium, Type: IssueTypePerformance},
-			{Severity: SeverityHigh, Type: IssueTypeReliability},
-			{Severity: SeverityLow, Type: IssueTypeMaintainability},
+	result := &types.AnalysisResult{
+		Issues: []types.Issue{
+			{Severity: types.SeverityHigh, Type: types.IssueTypeSecurity},
+			{Severity: types.SeverityMedium, Type: types.IssueTypePerformance},
+			{Severity: types.SeverityHigh, Type: types.IssueTypeReliability},
+			{Severity: types.SeverityLow, Type: types.IssueTypeMaintainability},
 		},
 	}
 
-	highSeverityIssues := result.FilterBySeverity(SeverityHigh)
+	highSeverityIssues := result.FilterBySeverity(types.SeverityHigh)
 
 	if len(highSeverityIssues) != 2 {
 		t.Errorf("Expected 2 high severity issues, got %d", len(highSeverityIssues))
 	}
 
 	for _, issue := range highSeverityIssues {
-		if issue.Severity != SeverityHigh {
+		if issue.Severity != types.SeverityHigh {
 			t.Errorf("Expected high severity, got %s", issue.Severity)
 		}
 	}
 }
 
 func TestFilterByType(t *testing.T) {
-	result := &AnalysisResult{
-		Issues: []Issue{
-			{Type: IssueTypeSecurity, Severity: SeverityHigh},
-			{Type: IssueTypePerformance, Severity: SeverityMedium},
-			{Type: IssueTypeSecurity, Severity: SeverityLow},
-			{Type: IssueTypeMaintainability, Severity: SeverityMedium},
+	result := &types.AnalysisResult{
+		Issues: []types.Issue{
+			{Type: types.IssueTypeSecurity, Severity: types.SeverityHigh},
+			{Type: types.IssueTypePerformance, Severity: types.SeverityMedium},
+			{Type: types.IssueTypeSecurity, Severity: types.SeverityLow},
+			{Type: types.IssueTypeMaintainability, Severity: types.SeverityMedium},
 		},
 	}
 
-	securityIssues := result.FilterByType(IssueTypeSecurity)
+	securityIssues := result.FilterByType(types.IssueTypeSecurity)
 
 	if len(securityIssues) != 2 {
 		t.Errorf("Expected 2 security issues, got %d", len(securityIssues))
 	}
 
 	for _, issue := range securityIssues {
-		if issue.Type != IssueTypeSecurity {
+		if issue.Type != types.IssueTypeSecurity {
 			t.Errorf("Expected security issue, got %s", issue.Type)
 		}
 	}
@@ -371,11 +372,11 @@ func TestRegistryOperations(t *testing.T) {
 	registry := NewCheckRegistry()
 
 	// Test registering a check
-	registry.Register("test_check", IssueTypePerformance, func(config *parser.GitLabConfig) []Issue {
-		return []Issue{
+	registry.Register("test_check", types.IssueTypePerformance, func(config *parser.GitLabConfig) []types.Issue {
+		return []types.Issue{
 			{
-				Type:     IssueTypePerformance,
-				Severity: SeverityMedium,
+				Type:     types.IssueTypePerformance,
+				Severity: types.SeverityMedium,
 				Message:  "Test issue",
 			},
 		}
@@ -395,31 +396,31 @@ func TestRegistryOperations(t *testing.T) {
 	}
 
 	// Test getting checks by type
-	performanceChecks := registry.GetChecksByType(IssueTypePerformance)
+	performanceChecks := registry.GetChecksByType(types.IssueTypePerformance)
 	if len(performanceChecks) == 0 {
 		t.Error("Expected to find performance checks")
 	}
 }
 
 func TestBaseChecker(t *testing.T) {
-	checkFunc := func(config *parser.GitLabConfig) []Issue {
-		return []Issue{
+	checkFunc := func(config *parser.GitLabConfig) []types.Issue {
+		return []types.Issue{
 			{
-				Type:     IssueTypeSecurity,
-				Severity: SeverityHigh,
+				Type:     types.IssueTypeSecurity,
+				Severity: types.SeverityHigh,
 				Message:  "Test security issue",
 			},
 		}
 	}
 
-	checker := NewBaseChecker("security_test", IssueTypeSecurity, checkFunc)
+	checker := NewBaseChecker("security_test", types.IssueTypeSecurity, checkFunc)
 
 	if checker.Name() != "security_test" {
 		t.Errorf("Expected name 'security_test', got '%s'", checker.Name())
 	}
 
-	if checker.Type() != IssueTypeSecurity {
-		t.Errorf("Expected type %s, got %s", IssueTypeSecurity, checker.Type())
+	if checker.Type() != types.IssueTypeSecurity {
+		t.Errorf("Expected type %s, got %s", types.IssueTypeSecurity, checker.Type())
 	}
 
 	if !checker.Enabled() {
@@ -446,7 +447,7 @@ func TestBaseChecker(t *testing.T) {
 		t.Errorf("Expected 1 issue, got %d", len(issues))
 	}
 
-	if issues[0].Type != IssueTypeSecurity {
+	if issues[0].Type != types.IssueTypeSecurity {
 		t.Errorf("Expected security issue, got %s", issues[0].Type)
 	}
 }
@@ -512,12 +513,12 @@ func TestConfigOperations(t *testing.T) {
 	}
 
 	// Test GetChecksByType
-	performanceChecks := config.GetChecksByType(IssueTypePerformance)
+	performanceChecks := config.GetChecksByType(types.IssueTypePerformance)
 	if len(performanceChecks) == 0 {
 		t.Error("Expected performance checks")
 	}
 
-	securityChecks := config.GetChecksByType(IssueTypeSecurity)
+	securityChecks := config.GetChecksByType(types.IssueTypeSecurity)
 	if len(securityChecks) == 0 {
 		t.Error("Expected security checks")
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer"
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
 	"github.com/wonderfulspam/gitlab-smith/pkg/deployer"
 	"github.com/wonderfulspam/gitlab-smith/pkg/differ"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
@@ -178,8 +179,8 @@ type RefactorResult struct {
 }
 
 type AnalysisComparison struct {
-	Old *analyzer.AnalysisResult `json:"old"`
-	New *analyzer.AnalysisResult `json:"new"`
+	Old *types.AnalysisResult `json:"old"`
+	New *types.AnalysisResult `json:"new"`
 }
 
 type FileInfo struct {

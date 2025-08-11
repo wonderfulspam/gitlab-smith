@@ -3,6 +3,7 @@ package analyzer
 import (
 	"testing"
 
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
@@ -165,7 +166,7 @@ func TestIntegrationAdvancedChecks(t *testing.T) {
 		result := analyzer.Analyze(config)
 
 		// Should find some maintainability issues related to templates
-		maintainabilityIssues := result.FilterByType(IssueTypeMaintainability)
+		maintainabilityIssues := result.FilterByType(types.IssueTypeMaintainability)
 		if len(maintainabilityIssues) == 0 {
 			t.Error("Expected maintainability issues for template patterns")
 		}
@@ -190,10 +191,10 @@ func TestAnalyzerFiltering(t *testing.T) {
 	}
 
 	t.Run("Filter by performance only", func(t *testing.T) {
-		result := analyzer.AnalyzeWithFilter(config, IssueTypePerformance)
+		result := analyzer.AnalyzeWithFilter(config, types.IssueTypePerformance)
 
 		for _, issue := range result.Issues {
-			if issue.Type != IssueTypePerformance {
+			if issue.Type != types.IssueTypePerformance {
 				t.Errorf("Found non-performance issue when filtering by performance: %s", issue.Type)
 			}
 		}
@@ -204,10 +205,10 @@ func TestAnalyzerFiltering(t *testing.T) {
 	})
 
 	t.Run("Filter by security only", func(t *testing.T) {
-		result := analyzer.AnalyzeWithFilter(config, IssueTypeSecurity)
+		result := analyzer.AnalyzeWithFilter(config, types.IssueTypeSecurity)
 
 		for _, issue := range result.Issues {
-			if issue.Type != IssueTypeSecurity {
+			if issue.Type != types.IssueTypeSecurity {
 				t.Errorf("Found non-security issue when filtering by security: %s", issue.Type)
 			}
 		}
@@ -260,13 +261,13 @@ func TestConfigurationManagement(t *testing.T) {
 
 		for _, check := range checks {
 			switch check.Type {
-			case IssueTypePerformance:
+			case types.IssueTypePerformance:
 				hasPerformance = true
-			case IssueTypeSecurity:
+			case types.IssueTypeSecurity:
 				hasSecurity = true
-			case IssueTypeMaintainability:
+			case types.IssueTypeMaintainability:
 				hasMaintainability = true
-			case IssueTypeReliability:
+			case types.IssueTypeReliability:
 				hasReliability = true
 			}
 		}

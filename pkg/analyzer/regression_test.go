@@ -3,6 +3,7 @@ package analyzer
 import (
 	"testing"
 
+	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
@@ -147,7 +148,7 @@ func TestNoRegressions(t *testing.T) {
 		// Verify proper categorization
 		for _, issue := range result.Issues {
 			switch issue.Type {
-			case IssueTypePerformance, IssueTypeSecurity, IssueTypeMaintainability, IssueTypeReliability:
+			case types.IssueTypePerformance, types.IssueTypeSecurity, types.IssueTypeMaintainability, types.IssueTypeReliability:
 				// Good - valid types
 			default:
 				t.Errorf("Found issue with invalid type: %s", issue.Type)
