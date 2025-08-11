@@ -78,20 +78,14 @@ func (rv *RefactoringValidator) parseConfiguration(configDir string) (*parser.Gi
 		return nil, fmt.Errorf("no GitLab CI main file found in %s", configDir)
 	}
 
-	// Read and parse the main configuration
-	data, err := os.ReadFile(mainFile)
+	// Parse the configuration with includes
+	config, err := parser.ParseFile(mainFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", mainFile, err)
+		return nil, fmt.Errorf("failed to parse configuration: %w", err)
 	}
-
-	config, err := parser.Parse(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w", mainFile, err)
-	}
-
-	// TODO: In future iterations, resolve includes relative to configDir
 	
 	return config, nil
 }
+
 
 

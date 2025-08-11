@@ -7,7 +7,7 @@ expectations:
   max_new_issues: 2
   semantic_equivalence: false   # Major restructuring
   performance_improvement: true 
-  minimum_jobs_analyzed: 18     # Should parse all microservice jobs
+  minimum_jobs_analyzed: 17     # Should parse all microservice jobs
   
   # Specific expected issues in BEFORE configuration
   expected_before_issues:

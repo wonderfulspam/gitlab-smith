@@ -106,6 +106,48 @@ gitlab-smith/
 - Focus on semantic differences, not syntactic changes
 - Performance testing requires actual runner deployment and job execution
 
+## Test Infrastructure
+
+### Test Organization
+```
+test/
+├── fixtures/                      # Simple test files for basic parsing
+│   ├── simple.gitlab-ci.yml
+│   └── simple-modified.gitlab-ci.yml
+├── simple-refactoring-cases/      # Paired before/after YML files for simple tests
+│   ├── *-before.yml              # Original configuration
+│   └── *-after.yml               # Refactored version
+├── refactoring-scenarios/         # Complex multi-file test scenarios
+│   └── scenario-N/               # Each scenario is a directory
+│       ├── before/               # Original configuration directory
+│       │   └── .gitlab-ci.yml
+│       ├── after/                # Refactored configuration directory
+│       │   ├── .gitlab-ci.yml
+│       │   └── ci/              # Include files (if using includes)
+│       ├── includes/             # Shared includes (legacy, being migrated to after/ci/)
+│       └── config.yaml           # Test expectations and metadata
+└── realistic-app-scenarios/       # Real-world application examples
+    └── flask-microservice/       # Complete Flask app with CI/CD
+```
+
+### Key Test Patterns
+- **Simple refactoring cases**: Use paired files (`*-before.yml` and `*-after.yml`)
+- **Complex scenarios**: Use directories with `before/` and `after/` subdirectories
+- **Include files**: Should be in `after/ci/` or `before/ci/` relative to the main .gitlab-ci.yml
+- **Test expectations**: Defined in `config.yaml` for each scenario
+
+### Running Tests
+```bash
+# All tests
+go test ./...
+
+# Specific scenario
+go test ./pkg/validator -run TestRefactoringScenarios/scenario-6 -v
+
+# Simple refactoring tests
+go test ./pkg/validator -run TestSimpleRefactoringCases -v
+```
+
 ## Getting Started
 
 To begin implementation:

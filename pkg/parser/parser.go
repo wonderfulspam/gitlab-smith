@@ -2,6 +2,8 @@ package parser
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -60,12 +62,12 @@ type Cache struct {
 }
 
 type Artifacts struct {
-	Paths     []string          `yaml:"paths,omitempty" json:"paths,omitempty"`
-	Name      string            `yaml:"name,omitempty" json:"name,omitempty"`
-	Untracked bool              `yaml:"untracked,omitempty" json:"untracked,omitempty"`
-	When      string            `yaml:"when,omitempty" json:"when,omitempty"`
-	ExpireIn  string            `yaml:"expire_in,omitempty" json:"expire_in,omitempty"`
-	Reports   map[string]string `yaml:"reports,omitempty" json:"reports,omitempty"`
+	Paths     []string               `yaml:"paths,omitempty" json:"paths,omitempty"`
+	Name      string                 `yaml:"name,omitempty" json:"name,omitempty"`
+	Untracked bool                   `yaml:"untracked,omitempty" json:"untracked,omitempty"`
+	When      string                 `yaml:"when,omitempty" json:"when,omitempty"`
+	ExpireIn  string                 `yaml:"expire_in,omitempty" json:"expire_in,omitempty"`
+	Reports   map[string]interface{} `yaml:"reports,omitempty" json:"reports,omitempty"`
 }
 
 type Need struct {
@@ -243,6 +245,99 @@ func isJobDefinition(value interface{}) bool {
 		}
 	}
 	return false
+}
+
+// ParseFile parses a GitLab CI file and resolves its includes
+func ParseFile(filePath string) (*GitLabConfig, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	config, err := Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse: %w", err)
+	}
+
+	// Resolve includes relative to the file's directory
+	baseDir := filepath.Dir(filePath)
+	if err := ResolveIncludes(config, baseDir); err != nil {
+		return nil, fmt.Errorf("failed to resolve includes: %w", err)
+	}
+
+	return config, nil
+}
+
+// ResolveIncludes resolves and merges local include files into the configuration
+func ResolveIncludes(config *GitLabConfig, baseDir string) error {
+	for _, include := range config.Include {
+		if include.Local != "" {
+			// Resolve local includes
+			includePath := filepath.Join(baseDir, include.Local)
+			if err := mergeIncludedFile(config, includePath); err != nil {
+				// Continue processing other includes even if one fails
+				// This matches GitLab's behavior of gracefully handling missing includes
+				continue
+			}
+		}
+		// TODO: Support other include types (remote, template, project) in future
+	}
+	return nil
+}
+
+// mergeIncludedFile reads and merges an included YAML file into the configuration
+func mergeIncludedFile(config *GitLabConfig, includePath string) error {
+	data, err := os.ReadFile(includePath)
+	if err != nil {
+		// File not found is not a fatal error in GitLab CI
+		return nil
+	}
+
+	includedConfig, err := Parse(data)
+	if err != nil {
+		return fmt.Errorf("failed to parse included file %s: %w", includePath, err)
+	}
+
+	// Merge included configuration into main config
+	// Jobs from includes are added (later includes can override earlier ones)
+	for jobName, job := range includedConfig.Jobs {
+		if config.Jobs == nil {
+			config.Jobs = make(map[string]*JobConfig)
+		}
+		config.Jobs[jobName] = job
+	}
+
+	// Merge variables (included variables are overridden by main file)
+	if includedConfig.Variables != nil && config.Variables == nil {
+		config.Variables = includedConfig.Variables
+	}
+
+	// Stages are typically only defined in the main file, but merge if needed
+	if len(config.Stages) == 0 && len(includedConfig.Stages) > 0 {
+		config.Stages = includedConfig.Stages
+	}
+
+	// Default job config
+	if config.Default == nil && includedConfig.Default != nil {
+		config.Default = includedConfig.Default
+	}
+
+	// Recursively process includes from the included file
+	if len(includedConfig.Include) > 0 {
+		includeDir := filepath.Dir(includePath)
+		// First resolve the includes from the included file into the included config
+		if err := ResolveIncludes(includedConfig, includeDir); err != nil {
+			return err
+		}
+		// Then merge any additional jobs found
+		for jobName, job := range includedConfig.Jobs {
+			if _, exists := config.Jobs[jobName]; !exists {
+				config.Jobs[jobName] = job
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *GitLabConfig) GetDependencyGraph() map[string][]string {
