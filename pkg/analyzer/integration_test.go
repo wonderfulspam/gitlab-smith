@@ -6,7 +6,7 @@ import (
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
-// TestIntegrationAdvancedChecks tests the advanced check functionality 
+// TestIntegrationAdvancedChecks tests the advanced check functionality
 // that was in the deleted analyzer_unit_test.go file
 func TestIntegrationAdvancedChecks(t *testing.T) {
 	analyzer := New()
@@ -34,7 +34,7 @@ func TestIntegrationAdvancedChecks(t *testing.T) {
 					Script: []string{"npm test"},
 				},
 				"test_node16": {
-					Stage: "test", 
+					Stage: "test",
 					Image: "node:16",
 					Variables: map[string]interface{}{
 						"NODE_VERSION": "16",
@@ -43,7 +43,7 @@ func TestIntegrationAdvancedChecks(t *testing.T) {
 				},
 				"test_node18": {
 					Stage: "test",
-					Image: "node:18", 
+					Image: "node:18",
 					Variables: map[string]interface{}{
 						"NODE_VERSION": "18",
 					},
@@ -63,7 +63,7 @@ func TestIntegrationAdvancedChecks(t *testing.T) {
 					Script: []string{"echo duplicate", "npm run test"},
 				},
 				"duplicate2": {
-					Stage:  "test", 
+					Stage:  "test",
 					Script: []string{"echo duplicate", "npm run test"}, // Same as duplicate1
 				},
 				// Job with high retry

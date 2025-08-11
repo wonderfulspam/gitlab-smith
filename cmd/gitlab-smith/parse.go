@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 	"github.com/spf13/cobra"
+	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 )
 
 var parseCmd = &cobra.Command{

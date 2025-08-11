@@ -194,7 +194,7 @@ func LoadConfig(filename string) (*Config, error) {
 	}
 
 	config := &Config{}
-	
+
 	// Try YAML first, then JSON
 	err = yaml.Unmarshal(data, config)
 	if err != nil {

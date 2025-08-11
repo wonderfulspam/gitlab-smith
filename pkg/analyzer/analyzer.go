@@ -36,10 +36,10 @@ func New() *Analyzer {
 func NewWithConfig(config *Config) *Analyzer {
 	analyzer := New()
 	analyzer.config = config
-	
+
 	// Update registry with config settings
 	analyzer.applyConfig()
-	
+
 	return analyzer
 }
 
@@ -49,7 +49,7 @@ func NewFromConfigFile(configFile string) (*Analyzer, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return NewWithConfig(config), nil
 }
 

@@ -53,7 +53,7 @@ func TestNoRegressions(t *testing.T) {
 					Script:       []string{"npm test"},
 				},
 				"test2": {
-					Stage:        "test", 
+					Stage:        "test",
 					BeforeScript: []string{"npm install", "setup env"}, // Same as test1
 					Script:       []string{"npm run coverage"},
 				},
@@ -64,7 +64,7 @@ func TestNoRegressions(t *testing.T) {
 						"echo starting deploy",
 						"docker build -t app .",
 						"docker tag app registry.com/app:latest",
-						"docker push registry.com/app:latest", 
+						"docker push registry.com/app:latest",
 						"kubectl apply -f k8s/",
 						"kubectl rollout status deployment/app",
 						"curl https://api.example.com/notify", // Hardcoded URL
@@ -106,7 +106,7 @@ func TestNoRegressions(t *testing.T) {
 			t.Error("Expected performance issues")
 		}
 		if result.Summary.Security == 0 {
-			t.Error("Expected security issues")  
+			t.Error("Expected security issues")
 		}
 		if result.Summary.Maintainability == 0 {
 			t.Error("Expected maintainability issues")
@@ -117,16 +117,16 @@ func TestNoRegressions(t *testing.T) {
 
 		// Check for specific critical issues that users would expect
 		expectedIssues := map[string]bool{
-			"secret":             false, // Security: variable names with secrets
-			"cache":              false, // Performance: cache key missing
-			"expiration":         false, // Performance: artifact expiration
-			"tag":                false, // Security: image without tag
-			"spaces":             false, // Maintainability: job name with spaces
-			"complex":            false, // Maintainability: complex script
-			"Duplicate":          false, // Maintainability: duplicate code/scripts
-			"retry":              false, // Reliability: high retry count
-			"rules":              false, // Maintainability: verbose rules
-			"include":            false, // Maintainability: include optimization
+			"secret":     false, // Security: variable names with secrets
+			"cache":      false, // Performance: cache key missing
+			"expiration": false, // Performance: artifact expiration
+			"tag":        false, // Security: image without tag
+			"spaces":     false, // Maintainability: job name with spaces
+			"complex":    false, // Maintainability: complex script
+			"Duplicate":  false, // Maintainability: duplicate code/scripts
+			"retry":      false, // Reliability: high retry count
+			"rules":      false, // Maintainability: verbose rules
+			"include":    false, // Maintainability: include optimization
 		}
 
 		for _, issue := range result.Issues {
@@ -158,7 +158,7 @@ func TestNoRegressions(t *testing.T) {
 	t.Run("Check count comparison with expected", func(t *testing.T) {
 		// Get list of all registered checks
 		checks := analyzer.ListChecks()
-		
+
 		// We should have most of the important checks
 		if len(checks) < 15 {
 			t.Errorf("Expected at least 15 checks registered, got %d", len(checks))

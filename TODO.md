@@ -5,7 +5,7 @@ by gemini-2.5-pro.
 
 ## High Priority
 
-- [ ] **Integrate Deployer with Validator:**
+- [x] **Integrate Deployer with Validator:**
   - The `validator` should be able to use the `deployer` to spin up a local GitLab instance and run the "before" and "after" configurations to validate behavioral equivalence.
   - This will enable the "Full Behavioral Testing" mode described in the `pipeline-emulator-spec.md`.
 

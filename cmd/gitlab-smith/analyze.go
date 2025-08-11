@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
-	"github.com/spf13/cobra"
 )
 
 var analyzeCmd = &cobra.Command{

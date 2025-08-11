@@ -26,7 +26,7 @@ func TestAnalyze_EmptyConfig(t *testing.T) {
 
 func TestNewAnalyzer(t *testing.T) {
 	analyzer := New()
-	
+
 	if analyzer == nil {
 		t.Fatal("Expected analyzer to be created")
 	}
@@ -81,9 +81,9 @@ func TestNewAnalyzer(t *testing.T) {
 func TestNewWithConfig(t *testing.T) {
 	config := DefaultConfig()
 	config.DisableCheck("cache_usage")
-	
+
 	analyzer := NewWithConfig(config)
-	
+
 	// Test that the specific check is disabled
 	result := analyzer.Analyze(&parser.GitLabConfig{
 		Jobs: map[string]*parser.JobConfig{
@@ -101,10 +101,10 @@ func TestNewWithConfig(t *testing.T) {
 
 func TestAnalyzerEnableDisableCheck(t *testing.T) {
 	analyzer := New()
-	
+
 	// Disable a check
 	analyzer.DisableCheck("job_naming")
-	
+
 	// Test with a config that would trigger job_naming issues
 	config := &parser.GitLabConfig{
 		Jobs: map[string]*parser.JobConfig{
@@ -115,7 +115,7 @@ func TestAnalyzerEnableDisableCheck(t *testing.T) {
 	}
 
 	result := analyzer.Analyze(config)
-	
+
 	// Should not contain job_naming issues
 	for _, issue := range result.Issues {
 		if strings.Contains(issue.Message, "spaces") {
@@ -125,9 +125,9 @@ func TestAnalyzerEnableDisableCheck(t *testing.T) {
 
 	// Re-enable the check
 	analyzer.EnableCheck("job_naming")
-	
+
 	result = analyzer.Analyze(config)
-	
+
 	// Should now contain job_naming issues
 	found := false
 	for _, issue := range result.Issues {
@@ -143,7 +143,7 @@ func TestAnalyzerEnableDisableCheck(t *testing.T) {
 
 func TestAnalyzeWithFilter(t *testing.T) {
 	analyzer := New()
-	
+
 	config := &parser.GitLabConfig{
 		Variables: map[string]interface{}{
 			"API_PASSWORD": "secret123", // Should trigger security issue
@@ -163,7 +163,7 @@ func TestAnalyzeWithFilter(t *testing.T) {
 
 	// Test filtering by security only
 	result := analyzer.AnalyzeWithFilter(config, IssueTypeSecurity)
-	
+
 	securityIssuesFound := 0
 	for _, issue := range result.Issues {
 		if issue.Type == IssueTypeSecurity {
@@ -172,19 +172,19 @@ func TestAnalyzeWithFilter(t *testing.T) {
 			t.Errorf("Found non-security issue when filtering by security: %s", issue.Type)
 		}
 	}
-	
+
 	if securityIssuesFound == 0 {
 		t.Error("Expected to find security issues")
 	}
 
 	// Test filtering by multiple types
 	result = analyzer.AnalyzeWithFilter(config, IssueTypeSecurity, IssueTypeMaintainability)
-	
+
 	validTypes := map[IssueType]bool{
 		IssueTypeSecurity:        true,
 		IssueTypeMaintainability: true,
 	}
-	
+
 	for _, issue := range result.Issues {
 		if !validTypes[issue.Type] {
 			t.Errorf("Found unexpected issue type when filtering: %s", issue.Type)
@@ -194,9 +194,9 @@ func TestAnalyzeWithFilter(t *testing.T) {
 
 func TestListChecks(t *testing.T) {
 	analyzer := New()
-	
+
 	checks := analyzer.ListChecks()
-	
+
 	if len(checks) == 0 {
 		t.Error("Expected checks to be listed")
 	}
@@ -369,7 +369,7 @@ func TestAnalyze_ComprehensiveConfig(t *testing.T) {
 
 func TestRegistryOperations(t *testing.T) {
 	registry := NewCheckRegistry()
-	
+
 	// Test registering a check
 	registry.Register("test_check", IssueTypePerformance, func(config *parser.GitLabConfig) []Issue {
 		return []Issue{
@@ -380,7 +380,7 @@ func TestRegistryOperations(t *testing.T) {
 			},
 		}
 	})
-	
+
 	checks := registry.GetChecks()
 	found := false
 	for _, check := range checks {
@@ -389,11 +389,11 @@ func TestRegistryOperations(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("Expected test check to be registered")
 	}
-	
+
 	// Test getting checks by type
 	performanceChecks := registry.GetChecksByType(IssueTypePerformance)
 	if len(performanceChecks) == 0 {
@@ -411,41 +411,41 @@ func TestBaseChecker(t *testing.T) {
 			},
 		}
 	}
-	
+
 	checker := NewBaseChecker("security_test", IssueTypeSecurity, checkFunc)
-	
+
 	if checker.Name() != "security_test" {
 		t.Errorf("Expected name 'security_test', got '%s'", checker.Name())
 	}
-	
+
 	if checker.Type() != IssueTypeSecurity {
 		t.Errorf("Expected type %s, got %s", IssueTypeSecurity, checker.Type())
 	}
-	
+
 	if !checker.Enabled() {
 		t.Error("Expected checker to be enabled by default")
 	}
-	
+
 	// Test disabling
 	checker.SetEnabled(false)
 	if checker.Enabled() {
 		t.Error("Expected checker to be disabled")
 	}
-	
+
 	// Test that disabled checker returns no issues
 	config := &parser.GitLabConfig{}
 	issues := checker.Check(config)
 	if len(issues) != 0 {
 		t.Error("Expected disabled checker to return no issues")
 	}
-	
+
 	// Test re-enabling
 	checker.SetEnabled(true)
 	issues = checker.Check(config)
 	if len(issues) != 1 {
 		t.Errorf("Expected 1 issue, got %d", len(issues))
 	}
-	
+
 	if issues[0].Type != IssueTypeSecurity {
 		t.Errorf("Expected security issue, got %s", issues[0].Type)
 	}
@@ -453,20 +453,20 @@ func TestBaseChecker(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
-	
+
 	if config == nil {
 		t.Fatal("Expected default config to be created")
 	}
-	
+
 	if len(config.Checks) == 0 {
 		t.Error("Expected default config to have checks")
 	}
-	
+
 	// Verify some expected checks exist
 	expectedChecks := []string{
 		"cache_usage", "job_naming", "image_tags", "retry_configuration",
 	}
-	
+
 	for _, expected := range expectedChecks {
 		if checkConfig, exists := config.Checks[expected]; !exists {
 			t.Errorf("Expected check '%s' to be in default config", expected)
@@ -483,40 +483,40 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestConfigOperations(t *testing.T) {
 	config := DefaultConfig()
-	
+
 	// Test IsCheckEnabled
 	if !config.IsCheckEnabled("cache_usage") {
 		t.Error("Expected cache_usage to be enabled")
 	}
-	
+
 	if config.IsCheckEnabled("nonexistent_check") {
 		t.Error("Expected nonexistent check to be disabled")
 	}
-	
+
 	// Test DisableCheck
 	config.DisableCheck("cache_usage")
 	if config.IsCheckEnabled("cache_usage") {
 		t.Error("Expected cache_usage to be disabled")
 	}
-	
+
 	// Test EnableCheck
 	config.EnableCheck("cache_usage")
 	if !config.IsCheckEnabled("cache_usage") {
 		t.Error("Expected cache_usage to be re-enabled")
 	}
-	
+
 	// Test GetEnabledChecks
 	enabledChecks := config.GetEnabledChecks()
 	if len(enabledChecks) == 0 {
 		t.Error("Expected enabled checks")
 	}
-	
+
 	// Test GetChecksByType
 	performanceChecks := config.GetChecksByType(IssueTypePerformance)
 	if len(performanceChecks) == 0 {
 		t.Error("Expected performance checks")
 	}
-	
+
 	securityChecks := config.GetChecksByType(IssueTypeSecurity)
 	if len(securityChecks) == 0 {
 		t.Error("Expected security checks")

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 	"github.com/wonderfulspam/gitlab-smith/pkg/renderer"
-	"github.com/spf13/cobra"
 )
 
 var visualizeCmd = &cobra.Command{
