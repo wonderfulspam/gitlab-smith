@@ -31,7 +31,7 @@ type DiffResult struct {
 	Semantic        []ConfigDiff `json:"semantic"`
 	Dependencies    []ConfigDiff `json:"dependencies"`
 	Performance     []ConfigDiff `json:"performance"`
-	Improvements    []ConfigDiff `json:"improvements"`     // Detected refactoring improvements
+	Improvements    []ConfigDiff `json:"improvements"` // Detected refactoring improvements
 	HasChanges      bool         `json:"has_changes"`
 	Summary         string       `json:"summary"`
 	ImprovementTags []string     `json:"improvement_tags"` // Tags like "duplication", "consolidation", "templates"
@@ -404,7 +404,7 @@ func detectImprovementPatterns(oldConfig, newConfig *parser.GitLabConfig, result
 
 	// 5. Detect cache optimization patterns
 	detectCacheOptimization(oldConfig, newConfig, result, improvementTags)
-	
+
 	// 6. Detect matrix pattern usage
 	detectMatrixPatterns(oldConfig, newConfig, result, improvementTags)
 
@@ -461,7 +461,7 @@ func detectTemplateExtraction(oldConfig, newConfig *parser.GitLabConfig, result 
 		if strings.HasPrefix(jobName, ".") {
 			templateJobs++
 		}
-		
+
 		extends := job.GetExtends()
 		if len(extends) > 0 {
 			extendsUsage++
@@ -532,13 +532,13 @@ func detectVariableOptimization(oldConfig, newConfig *parser.GitLabConfig, resul
 	templateJobsWithVars := 0
 	oldJobsWithVars := 0
 	newJobsWithVars := 0
-	
+
 	for _, oldJob := range oldConfig.Jobs {
 		if oldJob.Variables != nil && len(oldJob.Variables) > 0 {
 			oldJobsWithVars++
 		}
 	}
-	
+
 	for jobName, newJob := range newConfig.Jobs {
 		if newJob.Variables != nil && len(newJob.Variables) > 0 {
 			if strings.HasPrefix(jobName, ".") {
@@ -548,19 +548,19 @@ func detectVariableOptimization(oldConfig, newConfig *parser.GitLabConfig, resul
 			}
 		}
 	}
-	
+
 	// If jobs lost variables but templates gained them, it's consolidation
 	if oldJobsWithVars > newJobsWithVars && templateJobsWithVars > 0 {
 		result.Improvements = append(result.Improvements, ConfigDiff{
-			Type:        DiffTypeModified,
-			Path:        "jobs.*.variables",
-			Description: fmt.Sprintf("Consolidated variables from %d jobs into %d reusable templates", 
+			Type: DiffTypeModified,
+			Path: "jobs.*.variables",
+			Description: fmt.Sprintf("Consolidated variables from %d jobs into %d reusable templates",
 				oldJobsWithVars, templateJobsWithVars),
-			Behavioral:  false,
+			Behavioral: false,
 		})
 		variablePromotions++
 	}
-	
+
 	// Check for variable usage optimization (using existing global variables more effectively)
 	if len(newGlobalVars) > 0 && hasTemplateExtends(newConfig) && variablePromotions == 0 {
 		// If we have global variables and template usage, it's variable optimization
@@ -599,14 +599,14 @@ func detectDependencyOptimization(oldConfig, newConfig *parser.GitLabConfig, res
 			}
 		}
 	}
-	
+
 	// 2. Check for dependency simplification (removing redundant dependencies)
 	removedDependencies := 0
 	for jobName, newJob := range newConfig.Jobs {
 		if oldJob, exists := oldConfig.Jobs[jobName]; exists {
 			oldDepCount := len(oldJob.Dependencies)
 			newDepCount := len(newJob.Dependencies)
-			
+
 			if oldDepCount > newDepCount && oldDepCount > 0 {
 				result.Improvements = append(result.Improvements, ConfigDiff{
 					Type:        DiffTypeModified,
@@ -621,30 +621,30 @@ func detectDependencyOptimization(oldConfig, newConfig *parser.GitLabConfig, res
 			}
 		}
 	}
-	
+
 	// 3. Check for needs optimization (broader usage of needs)
 	oldNeedsUsage := 0
 	newNeedsUsage := 0
-	
+
 	for _, oldJob := range oldConfig.Jobs {
 		if oldJob.Needs != nil {
 			oldNeedsUsage++
 		}
 	}
-	
+
 	for _, newJob := range newConfig.Jobs {
 		if newJob.Needs != nil {
 			newNeedsUsage++
 		}
 	}
-	
+
 	if newNeedsUsage > oldNeedsUsage {
 		result.Improvements = append(result.Improvements, ConfigDiff{
-			Type:        DiffTypeModified,
-			Path:        "jobs.*.needs",
-			Description: fmt.Sprintf("Improved dependency management with needs usage: %d jobs now use needs vs %d previously", 
+			Type: DiffTypeModified,
+			Path: "jobs.*.needs",
+			Description: fmt.Sprintf("Improved dependency management with needs usage: %d jobs now use needs vs %d previously",
 				newNeedsUsage, oldNeedsUsage),
-			Behavioral:  false,
+			Behavioral: false,
 		})
 		dependencyOptimizations++
 	}
@@ -653,7 +653,7 @@ func detectDependencyOptimization(oldConfig, newConfig *parser.GitLabConfig, res
 	// When jobs are consolidated to templates, it can improve dependency clarity
 	templateJobCount := 0
 	jobsUsingTemplates := 0
-	
+
 	for jobName, job := range newConfig.Jobs {
 		if strings.HasPrefix(jobName, ".") {
 			templateJobCount++
@@ -661,15 +661,15 @@ func detectDependencyOptimization(oldConfig, newConfig *parser.GitLabConfig, res
 			jobsUsingTemplates++
 		}
 	}
-	
+
 	// If we have good template usage, it implies dependency organization improvement
 	if templateJobCount > 0 && jobsUsingTemplates >= 2 && dependencyOptimizations == 0 {
 		result.Improvements = append(result.Improvements, ConfigDiff{
-			Type:        DiffTypeModified,
-			Path:        "jobs.dependencies.organization",
-			Description: fmt.Sprintf("Improved dependency organization through template structure (%d templates, %d jobs)", 
+			Type: DiffTypeModified,
+			Path: "jobs.dependencies.organization",
+			Description: fmt.Sprintf("Improved dependency organization through template structure (%d templates, %d jobs)",
 				templateJobCount, jobsUsingTemplates),
-			Behavioral:  false,
+			Behavioral: false,
 		})
 		dependencyOptimizations++
 	}
@@ -698,11 +698,11 @@ func detectDuplicationRemoval(oldConfig, newConfig *parser.GitLabConfig, result 
 	newActualJobs := newJobCount - templateJobs
 	if newActualJobs < oldJobCount && templateJobs > 0 {
 		result.Improvements = append(result.Improvements, ConfigDiff{
-			Type:        DiffTypeModified,
-			Path:        "jobs",
-			Description: fmt.Sprintf("Consolidated %d jobs into %d jobs with %d reusable templates", 
+			Type: DiffTypeModified,
+			Path: "jobs",
+			Description: fmt.Sprintf("Consolidated %d jobs into %d jobs with %d reusable templates",
 				oldJobCount, newActualJobs, templateJobs),
-			Behavioral:  false,
+			Behavioral: false,
 		})
 		tags["consolidation"] = true
 		tags["duplication"] = true
@@ -713,18 +713,18 @@ func detectDuplicationRemoval(oldConfig, newConfig *parser.GitLabConfig, result 
 // detectCacheOptimization looks for cache-related improvements
 func detectCacheOptimization(oldConfig, newConfig *parser.GitLabConfig, result *DiffResult, tags map[string]bool) {
 	cacheImprovements := 0
-	
+
 	// 1. Check for cache consolidation - multiple jobs had individual cache, now using shared/template cache
 	oldJobsWithCache := 0
 	newJobsWithCache := 0
 	templateJobsWithCache := 0
-	
+
 	for _, job := range oldConfig.Jobs {
 		if job.Cache != nil {
 			oldJobsWithCache++
 		}
 	}
-	
+
 	for jobName, job := range newConfig.Jobs {
 		if job.Cache != nil {
 			if strings.HasPrefix(jobName, ".") {
@@ -734,11 +734,11 @@ func detectCacheOptimization(oldConfig, newConfig *parser.GitLabConfig, result *
 			}
 		}
 	}
-	
+
 	// 2. Check for default cache addition (global cache optimization)
 	oldDefaultCache := oldConfig.Default != nil && oldConfig.Default.Cache != nil
 	newDefaultCache := newConfig.Default != nil && newConfig.Default.Cache != nil
-	
+
 	if !oldDefaultCache && newDefaultCache {
 		result.Improvements = append(result.Improvements, ConfigDiff{
 			Type:        DiffTypeAdded,
@@ -749,28 +749,28 @@ func detectCacheOptimization(oldConfig, newConfig *parser.GitLabConfig, result *
 		})
 		cacheImprovements++
 	}
-	
+
 	// 3. Check for cache consolidation through templates
 	if oldJobsWithCache > newJobsWithCache && templateJobsWithCache > 0 {
 		result.Improvements = append(result.Improvements, ConfigDiff{
-			Type:        DiffTypeModified,
-			Path:        "jobs.*.cache",
-			Description: fmt.Sprintf("Consolidated cache configuration from %d jobs into %d reusable templates", 
+			Type: DiffTypeModified,
+			Path: "jobs.*.cache",
+			Description: fmt.Sprintf("Consolidated cache configuration from %d jobs into %d reusable templates",
 				oldJobsWithCache, templateJobsWithCache),
-			Behavioral:  false,
+			Behavioral: false,
 		})
 		cacheImprovements++
 	}
-	
+
 	// 4. Detect setup improvements that imply caching benefits (npm ci in before_script)
 	setupOptimizations := 0
 	for _, newJob := range newConfig.Jobs {
-		if strings.HasPrefix(strings.Join(newJob.BeforeScript, " "), "npm ci") || 
-		   containsSetupCommands(newJob.BeforeScript) {
+		if strings.HasPrefix(strings.Join(newJob.BeforeScript, " "), "npm ci") ||
+			containsSetupCommands(newJob.BeforeScript) {
 			setupOptimizations++
 		}
 	}
-	
+
 	// If we have setup consolidation in templates, it's a cache-related improvement
 	if setupOptimizations > 0 && templateJobsWithCache >= 0 { // Any template suggests setup optimization
 		result.Improvements = append(result.Improvements, ConfigDiff{
@@ -781,7 +781,7 @@ func detectCacheOptimization(oldConfig, newConfig *parser.GitLabConfig, result *
 		})
 		cacheImprovements++
 	}
-	
+
 	if cacheImprovements > 0 {
 		tags["cache"] = true
 		tags["optimization"] = true
@@ -791,21 +791,21 @@ func detectCacheOptimization(oldConfig, newConfig *parser.GitLabConfig, result *
 // detectMatrixPatterns looks for matrix strategy usage
 func detectMatrixPatterns(oldConfig, newConfig *parser.GitLabConfig, result *DiffResult, tags map[string]bool) {
 	matrixImprovements := 0
-	
+
 	// Look for jobs that could benefit from matrix strategy
 	// This is a heuristic: if we have many similar jobs with slight variations
 	jobPatterns := make(map[string][]string)
-	
+
 	for jobName, job := range newConfig.Jobs {
 		if strings.HasPrefix(jobName, ".") {
 			continue // Skip templates
 		}
-		
+
 		// Create a pattern key based on script and stage
 		patternKey := job.Stage + ":" + strings.Join(job.Script, "|")
 		jobPatterns[patternKey] = append(jobPatterns[patternKey], jobName)
 	}
-	
+
 	// Check for patterns that suggest matrix opportunities
 	for _, jobs := range jobPatterns {
 		if len(jobs) >= 2 {
@@ -819,7 +819,7 @@ func detectMatrixPatterns(oldConfig, newConfig *parser.GitLabConfig, result *Dif
 			matrixImprovements++
 		}
 	}
-	
+
 	// Check for actual matrix usage
 	for jobName, job := range newConfig.Jobs {
 		if job.Parallel > 1 || hasMatrixLikeVariables(job) {
@@ -832,7 +832,7 @@ func detectMatrixPatterns(oldConfig, newConfig *parser.GitLabConfig, result *Dif
 			matrixImprovements++
 		}
 	}
-	
+
 	if matrixImprovements > 0 {
 		tags["matrix"] = true
 		tags["parallel"] = true
@@ -844,7 +844,7 @@ func detectMatrixPatterns(oldConfig, newConfig *parser.GitLabConfig, result *Dif
 func containsSetupCommands(scripts []string) bool {
 	setupCommands := []string{"npm ci", "yarn install", "pip install", "bundle install", "composer install"}
 	scriptText := strings.Join(scripts, " ")
-	
+
 	for _, cmd := range setupCommands {
 		if strings.Contains(scriptText, cmd) {
 			return true
@@ -858,10 +858,10 @@ func hasMatrixLikeVariables(job *parser.JobConfig) bool {
 	if job.Variables == nil {
 		return false
 	}
-	
+
 	// Look for variables that suggest matrix usage (arrays, multiple versions, etc.)
 	matrixIndicators := []string{"VERSION", "NODE_VERSION", "PYTHON_VERSION", "ENV", "VARIANT"}
-	
+
 	for varName := range job.Variables {
 		for _, indicator := range matrixIndicators {
 			if strings.Contains(strings.ToUpper(varName), indicator) {
@@ -902,11 +902,11 @@ func hasFieldsMovedToDefault(oldJob, newJob *parser.JobConfig, defaultJob *parse
 	if len(oldJob.BeforeScript) > 0 && len(newJob.BeforeScript) == 0 && len(defaultJob.BeforeScript) > 0 {
 		fieldsMovedCount++
 	}
-	
+
 	if oldJob.Image != "" && newJob.Image == "" && defaultJob.Image != "" {
 		fieldsMovedCount++
 	}
-	
+
 	if len(oldJob.Variables) > 0 && len(newJob.Variables) < len(oldJob.Variables) && len(defaultJob.Variables) > 0 {
 		fieldsMovedCount++
 	}

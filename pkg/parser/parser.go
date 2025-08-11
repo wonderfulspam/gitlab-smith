@@ -209,7 +209,7 @@ func (j *JobConfig) GetExtends() []string {
 	if j.Extends == nil {
 		return nil
 	}
-	
+
 	switch v := j.Extends.(type) {
 	case string:
 		return []string{v}
@@ -441,12 +441,12 @@ func (r *IncludeResolver) resolveRemoteInclude(url string) ([]byte, error) {
 func (r *IncludeResolver) resolveTemplateInclude(template string) ([]byte, error) {
 	// GitLab templates are hosted on GitLab.com
 	baseURL := "https://gitlab.com/gitlab-org/gitlab/-/raw/master/lib/gitlab/ci/templates/"
-	
+
 	// Ensure template has .yml extension
 	if !strings.HasSuffix(template, ".yml") && !strings.HasSuffix(template, ".yaml") {
 		template += ".yml"
 	}
-	
+
 	url := baseURL + template
 	return r.resolveRemoteInclude(url)
 }
@@ -464,10 +464,10 @@ func (r *IncludeResolver) resolveProjectInclude(project, file, ref string) ([]by
 
 	// Build GitLab API URL for file content
 	// Format: /projects/:id/repository/files/:file_path/raw?ref=:ref
-	url := fmt.Sprintf("%s/projects/%s/repository/files/%s/raw?ref=%s", 
-		strings.TrimSuffix(r.gitlabAPIURL, "/"), 
-		strings.Replace(project, "/", "%2F", -1),  // URL encode project path
-		strings.Replace(file, "/", "%2F", -1),     // URL encode file path
+	url := fmt.Sprintf("%s/projects/%s/repository/files/%s/raw?ref=%s",
+		strings.TrimSuffix(r.gitlabAPIURL, "/"),
+		strings.Replace(project, "/", "%2F", -1), // URL encode project path
+		strings.Replace(file, "/", "%2F", -1),    // URL encode file path
 		ref)
 
 	// Check cache first
@@ -602,19 +602,19 @@ func (c *GitLabConfig) SimulateMergeRequestPipeline(sourceBranch string) map[str
 // SimulatePipeline simulates which jobs would run in the given pipeline context
 func (c *GitLabConfig) SimulatePipeline(context *PipelineContext) map[string]bool {
 	result := make(map[string]bool)
-	
+
 	// First check if pipeline should be created at all
 	evaluator := NewWorkflowEvaluator(c, context)
 	if !evaluator.ShouldCreatePipeline() {
 		// No jobs run if pipeline is not created
 		return result
 	}
-	
+
 	// Evaluate each job's rules to see if it should run
 	for jobName, job := range c.Jobs {
 		result[jobName] = c.shouldJobRun(job, context)
 	}
-	
+
 	return result
 }
 
@@ -624,12 +624,12 @@ func (c *GitLabConfig) shouldJobRun(job *JobConfig, context *PipelineContext) bo
 	if len(job.Rules) > 0 {
 		return c.evaluateJobRules(job, context)
 	}
-	
+
 	// If job has only/except, evaluate them (legacy)
 	if job.Only != nil || job.Except != nil {
 		return c.evaluateOnlyExcept(job, context)
 	}
-	
+
 	// Default behavior: job runs
 	return true
 }
@@ -649,7 +649,7 @@ func (c *GitLabConfig) evaluateJobRules(job *JobConfig, context *PipelineContext
 			}
 		}
 	}
-	
+
 	// No rule matched, default behavior is job doesn't run
 	return false
 }
@@ -660,12 +660,12 @@ func (c *GitLabConfig) ruleMatches(rule *Rule, context *PipelineContext) bool {
 	if rule.If == "" && len(rule.Changes) == 0 && len(rule.Exists) == 0 {
 		return true
 	}
-	
+
 	// Simple if condition evaluation
 	if rule.If != "" {
 		return c.evaluateSimpleIfCondition(rule.If, context)
 	}
-	
+
 	// For changes/exists, we can't evaluate without file system, assume true
 	return len(rule.Changes) == 0 && len(rule.Exists) == 0
 }
@@ -674,7 +674,7 @@ func (c *GitLabConfig) ruleMatches(rule *Rule, context *PipelineContext) bool {
 func (c *GitLabConfig) evaluateSimpleIfCondition(condition string, context *PipelineContext) bool {
 	// This is a simplified version - in practice GitLab has complex expression evaluation
 	condition = strings.TrimSpace(condition)
-	
+
 	// Common patterns
 	if strings.Contains(condition, "$CI_PIPELINE_SOURCE == \"push\"") {
 		return context.Event == "push"
@@ -682,14 +682,14 @@ func (c *GitLabConfig) evaluateSimpleIfCondition(condition string, context *Pipe
 	if strings.Contains(condition, "$CI_PIPELINE_SOURCE == \"merge_request_event\"") {
 		return context.Event == "merge_request_event"
 	}
-	if strings.Contains(condition, "$CI_COMMIT_BRANCH == \"main\"") || 
-	   strings.Contains(condition, "$CI_COMMIT_BRANCH == \"master\"") {
+	if strings.Contains(condition, "$CI_COMMIT_BRANCH == \"main\"") ||
+		strings.Contains(condition, "$CI_COMMIT_BRANCH == \"master\"") {
 		return context.IsMainBranch
 	}
 	if strings.Contains(condition, "$CI_MERGE_REQUEST_ID") {
 		return context.IsMR
 	}
-	
+
 	// Default to true for unknown conditions
 	return true
 }
@@ -698,17 +698,17 @@ func (c *GitLabConfig) evaluateSimpleIfCondition(condition string, context *Pipe
 func (c *GitLabConfig) evaluateOnlyExcept(job *JobConfig, context *PipelineContext) bool {
 	// This is a simplified implementation of only/except logic
 	// In practice, GitLab has complex matching rules for refs, variables, etc.
-	
+
 	// If only is specified, job runs only if conditions match
 	if job.Only != nil {
 		return c.matchesOnlyExcept(job.Only, context, true)
 	}
-	
+
 	// If except is specified, job runs unless conditions match
 	if job.Except != nil {
 		return !c.matchesOnlyExcept(job.Except, context, false)
 	}
-	
+
 	return true
 }
 
@@ -733,7 +733,7 @@ func (c *GitLabConfig) matchesOnlyExcept(condition interface{}, context *Pipelin
 	case string:
 		return c.matchesSingleCondition(v, context)
 	}
-	
+
 	return false
 }
 

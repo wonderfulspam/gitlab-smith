@@ -652,7 +652,7 @@ func TestImprovementPatternDetection(t *testing.T) {
 }
 
 func TestTemplateExtractionDetection(t *testing.T) {
-	// Test template extraction pattern  
+	// Test template extraction pattern
 	oldConfig := &parser.GitLabConfig{
 		Jobs: map[string]*parser.JobConfig{
 			"build": {

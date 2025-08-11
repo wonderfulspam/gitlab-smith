@@ -339,7 +339,7 @@ common_job:
 	defer server.Close()
 
 	resolver := NewIncludeResolver("", "")
-	
+
 	// Test successful remote include
 	data, err := resolver.resolveRemoteInclude(server.URL + "/common.yml")
 	if err != nil {
@@ -390,7 +390,7 @@ android_build:
 	defer server.Close()
 
 	resolver := NewIncludeResolver("", "")
-	
+
 	// Mock the template resolution by directly testing the remote include functionality
 	data, err := resolver.resolveRemoteInclude(server.URL + "/Android.yml")
 	if err != nil {
@@ -419,7 +419,7 @@ func TestIncludeResolver_ProjectInclude(t *testing.T) {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			
+
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`
 shared_job:
@@ -434,7 +434,7 @@ shared_job:
 	defer server.Close()
 
 	resolver := NewIncludeResolver(server.URL, "test-token")
-	
+
 	// Test successful project include
 	data, err := resolver.resolveProjectInclude("group/project", ".gitlab-ci.yml", "main")
 	if err != nil {
@@ -530,7 +530,7 @@ func TestIncludeResolver_MergeIncludedData(t *testing.T) {
 		},
 		Jobs: map[string]*JobConfig{
 			"base_job": {
-				Stage: "build",
+				Stage:  "build",
 				Script: []string{"echo base"},
 			},
 		},

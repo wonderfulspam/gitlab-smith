@@ -34,7 +34,7 @@ func (rv *RefactoringValidator) CompareConfigurations(beforeDir, afterDir string
 		return nil, fmt.Errorf("failed to parse before config: %w", err)
 	}
 
-	afterConfig, err := rv.parseConfiguration(afterDir) 
+	afterConfig, err := rv.parseConfiguration(afterDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse after config: %w", err)
 	}
@@ -64,7 +64,7 @@ func (rv *RefactoringValidator) CompareConfigurations(beforeDir, afterDir string
 func (rv *RefactoringValidator) parseConfiguration(configDir string) (*parser.GitLabConfig, error) {
 	// Look for main CI file
 	mainFiles := []string{".gitlab-ci.yml", ".gitlab-ci.yaml", "gitlab-ci.yml", "gitlab-ci.yaml"}
-	
+
 	var mainFile string
 	for _, filename := range mainFiles {
 		path := filepath.Join(configDir, filename)
@@ -83,9 +83,6 @@ func (rv *RefactoringValidator) parseConfiguration(configDir string) (*parser.Gi
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse configuration: %w", err)
 	}
-	
+
 	return config, nil
 }
-
-
-

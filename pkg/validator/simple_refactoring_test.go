@@ -14,25 +14,25 @@ import (
 
 // SimpleRefactoringCase represents a simple before/after test case
 type SimpleRefactoringCase struct {
-	Name        string
-	Description string
-	BeforeFile  string
-	AfterFile   string
+	Name         string
+	Description  string
+	BeforeFile   string
+	AfterFile    string
 	Expectations SimpleRefactoringExpectations
 }
 
 // SimpleRefactoringExpectations defines success criteria for simple cases
 type SimpleRefactoringExpectations struct {
-	ShouldReduceIssues     bool    // Should analyzer find fewer issues
-	ShouldMaintainBehavior bool    // Should behavior remain the same
-	ShouldImproveOrMaintainPerf bool // Should performance improve or stay same
-	ExpectedImprovementAreas []string // Areas that should show improvement
+	ShouldReduceIssues          bool     // Should analyzer find fewer issues
+	ShouldMaintainBehavior      bool     // Should behavior remain the same
+	ShouldImproveOrMaintainPerf bool     // Should performance improve or stay same
+	ExpectedImprovementAreas    []string // Areas that should show improvement
 	// MaxNewIssues should always be 0 - fully optimized configs should have no issues
-	
+
 	// Specific expected issues in BEFORE configuration
-	ExpectedBeforeIssues   []string // Specific issues that should be found in before config
+	ExpectedBeforeIssues []string // Specific issues that should be found in before config
 	// Specific expected improvements detected in AFTER configuration
-	ExpectedImprovements   []string // Specific improvements that should be detected
+	ExpectedImprovements []string // Specific improvements that should be detected
 	// Expected improvement tags from differ
 	ExpectedImprovementTags []string // Tags like "duplication", "consolidation", "templates"
 	// Expected number of issues that should be resolved (exact)
@@ -43,14 +43,14 @@ type SimpleRefactoringExpectations struct {
 
 // SimpleRefactoringResult contains validation results for simple cases
 type SimpleRefactoringResult struct {
-	Case               *SimpleRefactoringCase
-	Success            bool
-	Issues             []string
+	Case                *SimpleRefactoringCase
+	Success             bool
+	Issues              []string
 	AnalysisImprovement int
-	BehaviorMaintained bool
+	BehaviorMaintained  bool
 	PerformanceImproved bool
-	DiffResult         *differ.DiffResult
-	PipelineComparison *renderer.PipelineComparison
+	DiffResult          *differ.DiffResult
+	PipelineComparison  *renderer.PipelineComparison
 }
 
 // ValidateSimpleRefactoring validates a simple before/after refactoring case
@@ -110,7 +110,7 @@ func assessBehaviorMaintenance(diffResult *differ.DiffResult) bool {
 	// Check for significant behavioral changes
 	significantChanges := 0
 	templateJobs := 0
-	
+
 	for _, change := range diffResult.Semantic {
 		if isBehavioralChange(change) {
 			// Template jobs (starting with .) are refactoring improvements, not behavioral changes
@@ -118,7 +118,7 @@ func assessBehaviorMaintenance(diffResult *differ.DiffResult) bool {
 				templateJobs++
 				continue
 			}
-			
+
 			// Check if this is a refactoring-safe change
 			if isRefactoringSafeChange(change) {
 				continue // Safe refactoring changes don't count as significant
@@ -137,18 +137,18 @@ func assessBehaviorMaintenance(diffResult *differ.DiffResult) bool {
 func isRefactoringSafeChange(change differ.ConfigDiff) bool {
 	// Changes that are typically safe during refactoring
 	safePatterns := []string{
-		"script changed for", // Often consolidation moves
+		"script changed for",     // Often consolidation moves
 		"Job script changed for", // Usually setup consolidation
-		"Job removed:", // Template-based consolidation
-		"Job added:", // Template introduction
+		"Job removed:",           // Template-based consolidation
+		"Job added:",             // Template introduction
 	}
-	
+
 	for _, pattern := range safePatterns {
 		if contains(change.Description, pattern) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -169,8 +169,8 @@ func validateSimpleExpectations(result *SimpleRefactoringResult, expectations Si
 	}
 
 	// Check for new issues - should never happen in optimized configs
-	if result.AnalysisImprovement < 0 { 
-		result.Issues = append(result.Issues, 
+	if result.AnalysisImprovement < 0 {
+		result.Issues = append(result.Issues,
 			fmt.Sprintf("New issues introduced: %d (optimized configs should have 0)", -result.AnalysisImprovement))
 		success = false
 	}
@@ -196,12 +196,12 @@ func validateSimpleExpectations(result *SimpleRefactoringResult, expectations Si
 
 // contains checks if a string contains a substring (case-insensitive)
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && 
-		   (s == substr || 
-		    len(s) > len(substr) && 
-		    (s[:len(substr)] == substr || 
-		     s[len(s)-len(substr):] == substr ||
-		     indexOf(s, substr) >= 0))
+	return len(s) >= len(substr) &&
+		(s == substr ||
+			len(s) > len(substr) &&
+				(s[:len(substr)] == substr ||
+					s[len(s)-len(substr):] == substr ||
+					indexOf(s, substr) >= 0))
 }
 
 func indexOf(s, substr string) int {
@@ -216,7 +216,7 @@ func indexOf(s, substr string) int {
 // Test cases for simple refactoring scenarios
 func TestSimpleRefactoringCases(t *testing.T) {
 	basePath := "../../test/simple-refactoring-cases"
-	
+
 	testCases := []*SimpleRefactoringCase{
 		{
 			Name:        "duplicate-before-scripts",
@@ -224,10 +224,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			BeforeFile:  filepath.Join(basePath, "duplicate-before-scripts-before.yml"),
 			AfterFile:   filepath.Join(basePath, "duplicate-before-scripts-after.yml"),
 			Expectations: SimpleRefactoringExpectations{
-				ShouldReduceIssues:      true,
-				ShouldMaintainBehavior:  true,
+				ShouldReduceIssues:          true,
+				ShouldMaintainBehavior:      true,
 				ShouldImproveOrMaintainPerf: true,
-				ExpectedImprovementAreas: []string{"duplication"},
+				ExpectedImprovementAreas:    []string{"duplication"},
 				ExpectedBeforeIssues: []string{
 					"Duplicate before_script blocks in jobs",
 					"Duplicate setup configuration in jobs",
@@ -239,8 +239,8 @@ func TestSimpleRefactoringCases(t *testing.T) {
 					"Added global cache configuration to improve build performance",
 				},
 				ExpectedImprovementTags: []string{"consolidation", "duplication", "cache", "optimization"},
-				ExpectedIssuesResolved:       9,
-				ExpectedRemainingIssues: []string{},  // All issues should be resolved
+				ExpectedIssuesResolved:  9,
+				ExpectedRemainingIssues: []string{}, // All issues should be resolved
 			},
 		},
 		{
@@ -249,10 +249,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			BeforeFile:  filepath.Join(basePath, "duplicate-cache-before.yml"),
 			AfterFile:   filepath.Join(basePath, "duplicate-cache-after.yml"),
 			Expectations: SimpleRefactoringExpectations{
-				ShouldReduceIssues:      true,
-				ShouldMaintainBehavior:  true,
+				ShouldReduceIssues:          true,
+				ShouldMaintainBehavior:      true,
 				ShouldImproveOrMaintainPerf: true,
-				ExpectedImprovementAreas: []string{"cache", "duplication"},
+				ExpectedImprovementAreas:    []string{"cache", "duplication"},
 				ExpectedBeforeIssues: []string{
 					"Duplicate cache configuration",
 					"Duplicate image configuration",
@@ -263,8 +263,8 @@ func TestSimpleRefactoringCases(t *testing.T) {
 					"Added global cache configuration to improve build performance",
 				},
 				ExpectedImprovementTags: []string{"consolidation", "duplication", "cache", "optimization"},
-				ExpectedIssuesResolved:       3,
-				ExpectedRemainingIssues: []string{},  // No issues remain
+				ExpectedIssuesResolved:  3,
+				ExpectedRemainingIssues: []string{}, // No issues remain
 			},
 		},
 		{
@@ -273,10 +273,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			BeforeFile:  filepath.Join(basePath, "duplicate-docker-before.yml"),
 			AfterFile:   filepath.Join(basePath, "duplicate-docker-after.yml"),
 			Expectations: SimpleRefactoringExpectations{
-				ShouldReduceIssues:      true,
-				ShouldMaintainBehavior:  true,
+				ShouldReduceIssues:          true,
+				ShouldMaintainBehavior:      true,
 				ShouldImproveOrMaintainPerf: true,
-				ExpectedImprovementAreas: []string{"template", "duplication"},
+				ExpectedImprovementAreas:    []string{"template", "duplication"},
 				ExpectedBeforeIssues: []string{
 					"Duplicate Docker",
 					"Duplicate setup configuration",
@@ -289,8 +289,8 @@ func TestSimpleRefactoringCases(t *testing.T) {
 					"could be optimized using matrix strategy",
 				},
 				ExpectedImprovementTags: []string{"extends", "templates", "consolidation", "matrix"},
-				ExpectedIssuesResolved: 7,
-				ExpectedRemainingIssues: []string{},  // All issues should be resolved
+				ExpectedIssuesResolved:  7,
+				ExpectedRemainingIssues: []string{}, // All issues should be resolved
 			},
 		},
 		{
@@ -299,10 +299,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			BeforeFile:  filepath.Join(basePath, "unnecessary-deps-before.yml"),
 			AfterFile:   filepath.Join(basePath, "unnecessary-deps-after.yml"),
 			Expectations: SimpleRefactoringExpectations{
-				ShouldReduceIssues:      true,
-				ShouldMaintainBehavior:  true,
+				ShouldReduceIssues:          true,
+				ShouldMaintainBehavior:      true,
 				ShouldImproveOrMaintainPerf: true,
-				ExpectedImprovementAreas: []string{"dependencies"},
+				ExpectedImprovementAreas:    []string{"dependencies"},
 				ExpectedBeforeIssues: []string{
 					"Unnecessary dependencies",
 					"Duplicate image configuration",
@@ -312,8 +312,8 @@ func TestSimpleRefactoringCases(t *testing.T) {
 					"simplified dependencies",
 				},
 				ExpectedImprovementTags: []string{"templates", "extends", "dependencies"},
-				ExpectedIssuesResolved: 6,
-				ExpectedRemainingIssues: []string{},  // All issues should be resolved
+				ExpectedIssuesResolved:  6,
+				ExpectedRemainingIssues: []string{}, // All issues should be resolved
 			},
 		},
 		{
@@ -322,10 +322,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			BeforeFile:  filepath.Join(basePath, "verbose-rules-before.yml"),
 			AfterFile:   filepath.Join(basePath, "verbose-rules-after.yml"),
 			Expectations: SimpleRefactoringExpectations{
-				ShouldReduceIssues:      true,
-				ShouldMaintainBehavior:  true,
+				ShouldReduceIssues:          true,
+				ShouldMaintainBehavior:      true,
 				ShouldImproveOrMaintainPerf: true,
-				ExpectedImprovementAreas: []string{"rules", "simplification"},
+				ExpectedImprovementAreas:    []string{"rules", "simplification"},
 				ExpectedBeforeIssues: []string{
 					"Redundant rules",
 					"Verbose rules",
@@ -335,10 +335,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 					"Improved dependency organization",
 				},
 				ExpectedImprovementTags: []string{"templates", "extends"},
-				ExpectedIssuesResolved: 0, // Issues transform rather than resolve
+				ExpectedIssuesResolved:  0, // Issues transform rather than resolve
 				ExpectedRemainingIssues: []string{
 					"More than half of jobs don't use caching", // Analyzer limitation with templates
-					"Stage 'test' has", // Performance suggestion, not a critical issue
+					"Stage 'test' has",                         // Performance suggestion, not a critical issue
 				},
 			},
 		},
@@ -349,10 +349,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			BeforeFile:  filepath.Join(basePath, "multiple-patterns-before.yml"),
 			AfterFile:   filepath.Join(basePath, "multiple-patterns-after.yml"),
 			Expectations: SimpleRefactoringExpectations{
-				ShouldReduceIssues:      true,
-				ShouldMaintainBehavior:  true,
+				ShouldReduceIssues:          true,
+				ShouldMaintainBehavior:      true,
 				ShouldImproveOrMaintainPerf: true,
-				ExpectedImprovementAreas: []string{"template", "duplication", "extends"},
+				ExpectedImprovementAreas:    []string{"template", "duplication", "extends"},
 				ExpectedBeforeIssues: []string{
 					"Duplicate before_script",
 					"Duplicate setup configuration",
@@ -365,8 +365,8 @@ func TestSimpleRefactoringCases(t *testing.T) {
 					"could be optimized using matrix strategy",
 				},
 				ExpectedImprovementTags: []string{"consolidation", "duplication", "extends", "templates", "cache", "matrix"},
-				ExpectedIssuesResolved: 19,
-				ExpectedRemainingIssues: []string{},  // All issues should be resolved
+				ExpectedIssuesResolved:  19,
+				ExpectedRemainingIssues: []string{}, // All issues should be resolved
 			},
 		},
 		{
@@ -375,10 +375,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			BeforeFile:  filepath.Join(basePath, "variable-simple-before.yml"),
 			AfterFile:   filepath.Join(basePath, "variable-simple-after.yml"),
 			Expectations: SimpleRefactoringExpectations{
-				ShouldReduceIssues:      true,
-				ShouldMaintainBehavior:  true,
+				ShouldReduceIssues:          true,
+				ShouldMaintainBehavior:      true,
 				ShouldImproveOrMaintainPerf: true,
-				ExpectedImprovementAreas: []string{"variables", "duplication"},
+				ExpectedImprovementAreas:    []string{"variables", "duplication"},
 				ExpectedBeforeIssues: []string{
 					"Duplicate variable",
 					"Similar before_script",
@@ -390,8 +390,8 @@ func TestSimpleRefactoringCases(t *testing.T) {
 					"uses matrix strategy for efficient parallel execution",
 				},
 				ExpectedImprovementTags: []string{"templates", "extends", "variables", "consolidation", "cache", "matrix"},
-				ExpectedIssuesResolved: 4,
-				ExpectedRemainingIssues: []string{},  // All issues should be resolved
+				ExpectedIssuesResolved:  4,
+				ExpectedRemainingIssues: []string{}, // All issues should be resolved
 			},
 		},
 		{
@@ -400,10 +400,10 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			BeforeFile:  filepath.Join(basePath, "complex-conditions-before.yml"),
 			AfterFile:   filepath.Join(basePath, "complex-conditions-after.yml"),
 			Expectations: SimpleRefactoringExpectations{
-				ShouldReduceIssues:      true,
-				ShouldMaintainBehavior:  true,
+				ShouldReduceIssues:          true,
+				ShouldMaintainBehavior:      true,
 				ShouldImproveOrMaintainPerf: true,
-				ExpectedImprovementAreas: []string{"rules", "workflow"},
+				ExpectedImprovementAreas:    []string{"rules", "workflow"},
 				ExpectedBeforeIssues: []string{
 					"Redundant rules",
 					"Verbose rules",
@@ -415,8 +415,8 @@ func TestSimpleRefactoringCases(t *testing.T) {
 					"Consolidated dependency installation",
 				},
 				ExpectedImprovementTags: []string{"templates", "extends", "cache", "optimization"},
-				ExpectedIssuesResolved: 12,
-				ExpectedRemainingIssues: []string{},  // All issues should be resolved
+				ExpectedIssuesResolved:  12,
+				ExpectedRemainingIssues: []string{}, // All issues should be resolved
 			},
 		},
 	}
@@ -435,7 +435,7 @@ func TestSimpleRefactoringCases(t *testing.T) {
 			t.Logf("Behavior maintained: %v", result.BehaviorMaintained)
 
 			if result.PipelineComparison != nil {
-				t.Logf("Pipeline simulation - Jobs: %d total, %d added, %d removed", 
+				t.Logf("Pipeline simulation - Jobs: %d total, %d added, %d removed",
 					result.PipelineComparison.Summary.TotalJobs,
 					result.PipelineComparison.Summary.AddedJobs,
 					result.PipelineComparison.Summary.RemovedJobs)
@@ -459,7 +459,7 @@ func TestSimpleRefactoringCases(t *testing.T) {
 				t.Logf("Debug - Semantic changes:")
 				for _, change := range result.DiffResult.Semantic {
 					behavioral := isBehavioralChange(change)
-					t.Logf("  - Path: %s, Type: %s, Description: %s, Behavioral: %v", 
+					t.Logf("  - Path: %s, Type: %s, Description: %s, Behavioral: %v",
 						change.Path, change.Type, change.Description, behavioral)
 				}
 			}
@@ -475,7 +475,7 @@ func TestSimpleRefactoringCases(t *testing.T) {
 // Benchmark simple refactoring validation
 func BenchmarkSimpleRefactoringValidation(b *testing.B) {
 	basePath := "../../test/simple-refactoring-cases"
-	
+
 	testCase := &SimpleRefactoringCase{
 		Name:       "benchmark",
 		BeforeFile: filepath.Join(basePath, "duplicate-before-scripts-before.yml"),

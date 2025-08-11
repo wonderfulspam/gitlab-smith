@@ -7,11 +7,11 @@ import (
 
 // PipelineContext represents the context in which a pipeline is running
 type PipelineContext struct {
-	Branch      string            // Current branch name
-	Variables   map[string]string // GitLab predefined and custom variables
-	Event       string            // push, merge_request_event, schedule, api, etc.
-	IsMR        bool              // Whether this is a merge request pipeline
-	IsMainBranch bool             // Whether this is the main/default branch
+	Branch       string            // Current branch name
+	Variables    map[string]string // GitLab predefined and custom variables
+	Event        string            // push, merge_request_event, schedule, api, etc.
+	IsMR         bool              // Whether this is a merge request pipeline
+	IsMainBranch bool              // Whether this is the main/default branch
 }
 
 // WorkflowEvaluator evaluates workflow rules to determine if a pipeline should be created
@@ -38,7 +38,7 @@ func (w *WorkflowEvaluator) ShouldCreatePipeline() bool {
 	// Evaluate each rule in order
 	for _, rule := range w.config.Workflow.Rules {
 		result := w.evaluateRule(&rule)
-		
+
 		// Rules are evaluated in order, first match wins
 		if result != nil {
 			return *result
@@ -98,23 +98,23 @@ func (w *WorkflowEvaluator) ruleConditionMatches(rule *Rule) bool {
 func (w *WorkflowEvaluator) evaluateIfCondition(condition string) bool {
 	// This is a simplified implementation of GitLab's if condition evaluation
 	// In a full implementation, this would need to parse complex expressions
-	
+
 	// Handle common patterns
 	condition = strings.TrimSpace(condition)
-	
+
 	// Handle variable comparisons
 	if strings.Contains(condition, "$CI_PIPELINE_SOURCE") {
 		return w.evaluateSourceCondition(condition)
 	}
-	
+
 	if strings.Contains(condition, "$CI_COMMIT_BRANCH") {
 		return w.evaluateBranchCondition(condition)
 	}
-	
+
 	if strings.Contains(condition, "$CI_MERGE_REQUEST_ID") {
 		return w.evaluateMRCondition(condition)
 	}
-	
+
 	// Default to true for unknown conditions (conservative approach)
 	return true
 }
@@ -125,7 +125,7 @@ func (w *WorkflowEvaluator) evaluateSourceCondition(condition string) bool {
 	if source == "" {
 		source = "push" // Default
 	}
-	
+
 	// Handle equality checks
 	if strings.Contains(condition, "==") {
 		// Extract the comparison value
@@ -135,7 +135,7 @@ func (w *WorkflowEvaluator) evaluateSourceCondition(condition string) bool {
 			return source == matches[1]
 		}
 	}
-	
+
 	// Handle inequality checks
 	if strings.Contains(condition, "!=") {
 		re := regexp.MustCompile(`\$CI_PIPELINE_SOURCE\s*!=\s*"([^"]+)"`)
@@ -144,7 +144,7 @@ func (w *WorkflowEvaluator) evaluateSourceCondition(condition string) bool {
 			return source != matches[1]
 		}
 	}
-	
+
 	return true
 }
 
@@ -154,7 +154,7 @@ func (w *WorkflowEvaluator) evaluateBranchCondition(condition string) bool {
 	if branch == "" {
 		return false
 	}
-	
+
 	// Handle equality checks
 	if strings.Contains(condition, "==") {
 		re := regexp.MustCompile(`\$CI_COMMIT_BRANCH\s*==\s*"([^"]+)"`)
@@ -163,8 +163,8 @@ func (w *WorkflowEvaluator) evaluateBranchCondition(condition string) bool {
 			return branch == matches[1]
 		}
 	}
-	
-	// Handle inequality checks  
+
+	// Handle inequality checks
 	if strings.Contains(condition, "!=") {
 		re := regexp.MustCompile(`\$CI_COMMIT_BRANCH\s*!=\s*"([^"]+)"`)
 		matches := re.FindStringSubmatch(condition)
@@ -172,7 +172,7 @@ func (w *WorkflowEvaluator) evaluateBranchCondition(condition string) bool {
 			return branch != matches[1]
 		}
 	}
-	
+
 	return true
 }
 
@@ -182,7 +182,7 @@ func (w *WorkflowEvaluator) evaluateMRCondition(condition string) bool {
 	if strings.Contains(condition, "$CI_MERGE_REQUEST_ID") {
 		return w.context.IsMR
 	}
-	
+
 	return true
 }
 

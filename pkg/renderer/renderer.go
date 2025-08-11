@@ -15,38 +15,38 @@ import (
 
 // PipelineExecution represents a GitLab pipeline execution
 type PipelineExecution struct {
-	ID         int                `json:"id"`
-	Status     string             `json:"status"`
-	Ref        string             `json:"ref"`
-	SHA        string             `json:"sha"`
-	Jobs       []JobExecution     `json:"jobs"`
-	Variables  map[string]string  `json:"variables"`
-	CreatedAt  time.Time          `json:"created_at"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Duration   int                `json:"duration"`
-	QueuedDuration int            `json:"queued_duration"`
+	ID             int               `json:"id"`
+	Status         string            `json:"status"`
+	Ref            string            `json:"ref"`
+	SHA            string            `json:"sha"`
+	Jobs           []JobExecution    `json:"jobs"`
+	Variables      map[string]string `json:"variables"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
+	Duration       int               `json:"duration"`
+	QueuedDuration int               `json:"queued_duration"`
 }
 
 // JobExecution represents a single job execution within a pipeline
 type JobExecution struct {
-	ID           int               `json:"id"`
-	Name         string            `json:"name"`
-	Stage        string            `json:"stage"`
-	Status       string            `json:"status"`
-	StartedAt    *time.Time        `json:"started_at"`
-	FinishedAt   *time.Time        `json:"finished_at"`
-	Duration     float64           `json:"duration"`
-	QueuedDuration float64         `json:"queued_duration"`
-	Runner       *RunnerInfo       `json:"runner"`
-	Artifacts    []ArtifactInfo    `json:"artifacts"`
-	Dependencies []string          `json:"dependencies"`
-	Needs        []string          `json:"needs"`
+	ID             int            `json:"id"`
+	Name           string         `json:"name"`
+	Stage          string         `json:"stage"`
+	Status         string         `json:"status"`
+	StartedAt      *time.Time     `json:"started_at"`
+	FinishedAt     *time.Time     `json:"finished_at"`
+	Duration       float64        `json:"duration"`
+	QueuedDuration float64        `json:"queued_duration"`
+	Runner         *RunnerInfo    `json:"runner"`
+	Artifacts      []ArtifactInfo `json:"artifacts"`
+	Dependencies   []string       `json:"dependencies"`
+	Needs          []string       `json:"needs"`
 }
 
 // RunnerInfo represents information about the runner that executed a job
 type RunnerInfo struct {
-	ID          int    `json:"id"`
-	Description string `json:"description"`
+	ID          int      `json:"id"`
+	Description string   `json:"description"`
 	Tags        []string `json:"tags"`
 }
 
@@ -59,22 +59,22 @@ type ArtifactInfo struct {
 
 // PipelineComparison represents a comparison between two pipeline executions
 type PipelineComparison struct {
-	OldExecution    *PipelineExecution    `json:"old_execution"`
-	NewExecution    *PipelineExecution    `json:"new_execution"`
-	JobComparisons  []JobComparison       `json:"job_comparisons"`
-	Summary         ComparisonSummary     `json:"summary"`
-	PerformanceGain PerformanceMetrics    `json:"performance_gain"`
+	OldExecution    *PipelineExecution `json:"old_execution"`
+	NewExecution    *PipelineExecution `json:"new_execution"`
+	JobComparisons  []JobComparison    `json:"job_comparisons"`
+	Summary         ComparisonSummary  `json:"summary"`
+	PerformanceGain PerformanceMetrics `json:"performance_gain"`
 }
 
 // JobComparison represents a comparison between two job executions
 type JobComparison struct {
-	JobName         string         `json:"job_name"`
-	OldJob          *JobExecution  `json:"old_job,omitempty"`
-	NewJob          *JobExecution  `json:"new_job,omitempty"`
-	Status          CompareStatus  `json:"status"`
-	DurationChange  float64        `json:"duration_change"`
-	QueueTimeChange float64        `json:"queue_time_change"`
-	Changes         []string       `json:"changes"`
+	JobName         string        `json:"job_name"`
+	OldJob          *JobExecution `json:"old_job,omitempty"`
+	NewJob          *JobExecution `json:"new_job,omitempty"`
+	Status          CompareStatus `json:"status"`
+	DurationChange  float64       `json:"duration_change"`
+	QueueTimeChange float64       `json:"queue_time_change"`
+	Changes         []string      `json:"changes"`
 }
 
 // CompareStatus indicates the comparison status between jobs
@@ -91,23 +91,23 @@ const (
 
 // ComparisonSummary provides high-level comparison metrics
 type ComparisonSummary struct {
-	TotalJobs        int     `json:"total_jobs"`
-	AddedJobs        int     `json:"added_jobs"`
-	RemovedJobs      int     `json:"removed_jobs"`
-	ImprovedJobs     int     `json:"improved_jobs"`
-	DegradedJobs     int     `json:"degraded_jobs"`
-	IdenticalJobs    int     `json:"identical_jobs"`
-	OverallImprovement bool  `json:"overall_improvement"`
-	TotalTimeChange  float64 `json:"total_time_change"`
+	TotalJobs          int     `json:"total_jobs"`
+	AddedJobs          int     `json:"added_jobs"`
+	RemovedJobs        int     `json:"removed_jobs"`
+	ImprovedJobs       int     `json:"improved_jobs"`
+	DegradedJobs       int     `json:"degraded_jobs"`
+	IdenticalJobs      int     `json:"identical_jobs"`
+	OverallImprovement bool    `json:"overall_improvement"`
+	TotalTimeChange    float64 `json:"total_time_change"`
 }
 
 // PerformanceMetrics tracks performance-related changes
 type PerformanceMetrics struct {
-	TotalPipelineDuration float64 `json:"total_pipeline_duration"`
-	AverageJobDuration    float64 `json:"average_job_duration"`
-	ParallelismImprovement int    `json:"parallelism_improvement"`
-	CacheHitImprovements  int     `json:"cache_hit_improvements"`
-	StartupTimeReduction  float64 `json:"startup_time_reduction"`
+	TotalPipelineDuration  float64 `json:"total_pipeline_duration"`
+	AverageJobDuration     float64 `json:"average_job_duration"`
+	ParallelismImprovement int     `json:"parallelism_improvement"`
+	CacheHitImprovements   int     `json:"cache_hit_improvements"`
+	StartupTimeReduction   float64 `json:"startup_time_reduction"`
 }
 
 // GitLabClient represents a GitLab API client for interacting with pipelines
@@ -131,12 +131,14 @@ func NewGitLabClient(baseURL, token, projectID string) *GitLabClient {
 // Renderer handles pipeline execution rendering and comparison
 type Renderer struct {
 	client *GitLabClient
+	visual *VisualRenderer
 }
 
 // New creates a new Renderer instance
 func New(client *GitLabClient) *Renderer {
 	return &Renderer{
 		client: client,
+		visual: NewVisualRenderer(),
 	}
 }
 
@@ -198,20 +200,20 @@ func (r *Renderer) simulatePipelineExecution(config *parser.GitLabConfig) *Pipel
 		if job == nil {
 			continue
 		}
-		
+
 		// Skip template jobs (starting with .) as they don't run independently
 		if strings.HasPrefix(jobName, ".") {
 			continue
 		}
-		
+
 		jobExec := JobExecution{
-			ID:           0, // Simulated
-			Name:         jobName,
-			Stage:        job.Stage,
-			Status:       "simulated",
-			Dependencies: job.Dependencies,
-			Needs:        extractJobNames(job.Needs),
-			Duration:     estimateJobDurationWithContext(job, config.Jobs),
+			ID:             0, // Simulated
+			Name:           jobName,
+			Stage:          job.Stage,
+			Status:         "simulated",
+			Dependencies:   job.Dependencies,
+			Needs:          extractJobNames(job.Needs),
+			Duration:       estimateJobDurationWithContext(job, config.Jobs),
 			QueuedDuration: 0,
 		}
 
@@ -220,8 +222,8 @@ func (r *Renderer) simulatePipelineExecution(config *parser.GitLabConfig) *Pipel
 
 	// Sort jobs by stage order
 	sort.Slice(pipeline.Jobs, func(i, j int) bool {
-		return getStageOrder(pipeline.Jobs[i].Stage, config.Stages) < 
-		       getStageOrder(pipeline.Jobs[j].Stage, config.Stages)
+		return getStageOrder(pipeline.Jobs[i].Stage, config.Stages) <
+			getStageOrder(pipeline.Jobs[j].Stage, config.Stages)
 	})
 
 	return pipeline
@@ -417,7 +419,7 @@ func convertVariables(vars map[string]interface{}) map[string]string {
 	if vars == nil {
 		return make(map[string]string)
 	}
-	
+
 	result := make(map[string]string, len(vars))
 	for k, v := range vars {
 		if str, ok := v.(string); ok {
@@ -433,7 +435,7 @@ func extractJobNames(needs interface{}) []string {
 	if needs == nil {
 		return []string{}
 	}
-	
+
 	// Handle different need formats
 	switch v := needs.(type) {
 	case []string:
@@ -461,27 +463,27 @@ func extractJobNames(needs interface{}) []string {
 
 func estimateJobDuration(job *parser.JobConfig) float64 {
 	// Simple heuristic: base duration + script length factor
-	baseDuration := 30.0 // 30 seconds base
+	baseDuration := 30.0                           // 30 seconds base
 	scriptFactor := float64(len(job.Script)) * 2.0 // 2 seconds per script line
-	
+
 	// Add before_script overhead (typically setup commands)
 	beforeScriptFactor := float64(len(job.BeforeScript)) * 2.0 // 2 seconds per before_script line
-	
+
 	if len(job.Services) > 0 {
 		baseDuration += 15.0 // Additional time for services
 	}
-	
+
 	return baseDuration + scriptFactor + beforeScriptFactor
 }
 
 // estimateJobDurationWithContext considers template inheritance for more accurate estimation
 func estimateJobDurationWithContext(job *parser.JobConfig, allJobs map[string]*parser.JobConfig) float64 {
-	baseDuration := 30.0 // 30 seconds base
+	baseDuration := 30.0                           // 30 seconds base
 	scriptFactor := float64(len(job.Script)) * 2.0 // 2 seconds per script line
-	
+
 	// Calculate before_script - either direct or from template
 	beforeScriptLines := len(job.BeforeScript)
-	
+
 	// If job uses extends, get before_script from template
 	extendsTemplates := extractExtendsTemplates(job.Extends)
 	if len(extendsTemplates) > 0 {
@@ -491,24 +493,24 @@ func estimateJobDurationWithContext(job *parser.JobConfig, allJobs map[string]*p
 			}
 		}
 	}
-	
+
 	beforeScriptFactor := float64(beforeScriptLines) * 2.0
-	
+
 	if len(job.Services) > 0 {
 		baseDuration += 15.0 // Additional time for services
 	}
-	
+
 	// Optimization bonus: if using templates, reduce overhead slightly due to better caching/reuse
 	optimizationBonus := 0.0
 	if len(extendsTemplates) > 0 {
 		optimizationBonus = 3.0 // Small improvement from template reuse
 	}
-	
+
 	duration := baseDuration + scriptFactor + beforeScriptFactor - optimizationBonus
 	if duration < 10.0 {
 		duration = 10.0 // Minimum duration
 	}
-	
+
 	return duration
 }
 
@@ -516,7 +518,7 @@ func extractExtendsTemplates(extends interface{}) []string {
 	if extends == nil {
 		return []string{}
 	}
-	
+
 	// Handle different extend formats
 	switch v := extends.(type) {
 	case string:
@@ -624,6 +626,30 @@ func equalStringSlices(a, b []string) bool {
 	return true
 }
 
+// RenderVisualPipeline generates a visual representation of a pipeline configuration
+func (r *Renderer) RenderVisualPipeline(config *parser.GitLabConfig, format string) (string, error) {
+	switch format {
+	case "dot":
+		return r.visual.RenderPipelineGraph(config, FormatDOT)
+	case "mermaid":
+		return r.visual.RenderPipelineGraph(config, FormatMermaid)
+	default:
+		return "", fmt.Errorf("unsupported visual format: %s (supported: dot, mermaid)", format)
+	}
+}
+
+// RenderVisualComparison generates a visual comparison between two pipeline configurations
+func (r *Renderer) RenderVisualComparison(oldConfig, newConfig *parser.GitLabConfig, comparison *PipelineComparison, format string) (string, error) {
+	switch format {
+	case "dot":
+		return r.visual.RenderComparisonGraph(oldConfig, newConfig, comparison, FormatDOT)
+	case "mermaid":
+		return r.visual.RenderComparisonGraph(oldConfig, newConfig, comparison, FormatMermaid)
+	default:
+		return "", fmt.Errorf("unsupported visual format: %s (supported: dot, mermaid)", format)
+	}
+}
+
 // FormatComparison formats a pipeline comparison for display
 func (r *Renderer) FormatComparison(comparison *PipelineComparison, format string) (string, error) {
 	switch format {
@@ -637,8 +663,13 @@ func (r *Renderer) FormatComparison(comparison *PipelineComparison, format strin
 	case "table", "":
 		return r.formatComparisonTable(comparison), nil
 
+	case "dot", "mermaid":
+		// Visual formats require configuration data, which isn't available here
+		// These should be handled by RenderVisualComparison instead
+		return "", fmt.Errorf("visual format %s requires using RenderVisualComparison with configuration data", format)
+
 	default:
-		return "", fmt.Errorf("unsupported format: %s", format)
+		return "", fmt.Errorf("unsupported format: %s (supported: json, table, dot, mermaid)", format)
 	}
 }
 

@@ -30,9 +30,9 @@ func TestRenderer_SimulatePipelineExecution(t *testing.T) {
 				Dependencies: []string{"build"},
 			},
 			"deploy": {
-				Stage: "deploy",
+				Stage:  "deploy",
 				Script: []string{"npm run deploy"},
-				Needs: []interface{}{map[string]interface{}{"job": "test"}},
+				Needs:  []interface{}{map[string]interface{}{"job": "test"}},
 			},
 		},
 	}
@@ -82,8 +82,8 @@ func TestRenderer_CompareExecutions(t *testing.T) {
 		ID:       2,
 		Duration: 250,
 		Jobs: []JobExecution{
-			{Name: "build", Stage: "build", Duration: 45.0, Status: "success"}, // Improved
-			{Name: "test", Stage: "test", Duration: 120.0, Status: "success"},  // Same
+			{Name: "build", Stage: "build", Duration: 45.0, Status: "success"},   // Improved
+			{Name: "test", Stage: "test", Duration: 120.0, Status: "success"},    // Same
 			{Name: "deploy", Stage: "deploy", Duration: 85.0, Status: "success"}, // Improved
 			{Name: "lint", Stage: "test", Duration: 30.0, Status: "success"},     // Added
 		},
@@ -163,9 +163,9 @@ func TestRenderer_CompareJobs(t *testing.T) {
 	renderer := New(nil)
 
 	tests := []struct {
-		name        string
-		oldJob      *JobExecution
-		newJob      *JobExecution
+		name           string
+		oldJob         *JobExecution
+		newJob         *JobExecution
 		expectedStatus CompareStatus
 		expectChanges  bool
 	}{
@@ -243,10 +243,10 @@ func TestRenderer_FormatComparison(t *testing.T) {
 			TotalTimeChange:    -15.5,
 		},
 		PerformanceGain: PerformanceMetrics{
-			TotalPipelineDuration: -30.0,
-			AverageJobDuration:    -5.0,
+			TotalPipelineDuration:  -30.0,
+			AverageJobDuration:     -5.0,
 			ParallelismImprovement: 2,
-			StartupTimeReduction:  10.0,
+			StartupTimeReduction:   10.0,
 		},
 		JobComparisons: []JobComparison{
 			{
@@ -435,27 +435,27 @@ func TestRenderer_CalculatePerformanceMetrics(t *testing.T) {
 
 	expectedPipelineDurationChange := float64(250 - 300) // -50
 	if metrics.TotalPipelineDuration != expectedPipelineDurationChange {
-		t.Errorf("Expected pipeline duration change of %f, got %f", 
+		t.Errorf("Expected pipeline duration change of %f, got %f",
 			expectedPipelineDurationChange, metrics.TotalPipelineDuration)
 	}
 
 	// Check average job duration calculation
 	oldAvg := (60.0 + 120.0 + 120.0) / 3.0 // 100.0
-	newAvg := (45.0 + 100.0 + 105.0) / 3.0  // 83.33
+	newAvg := (45.0 + 100.0 + 105.0) / 3.0 // 83.33
 	expectedAvgChange := newAvg - oldAvg
 
 	if abs(metrics.AverageJobDuration-expectedAvgChange) > 0.01 {
-		t.Errorf("Expected average job duration change of %f, got %f", 
+		t.Errorf("Expected average job duration change of %f, got %f",
 			expectedAvgChange, metrics.AverageJobDuration)
 	}
 
 	// Check startup time reduction
-	oldAvgQueue := (10.0 + 15.0 + 20.0) / 3.0 // 15.0
-	newAvgQueue := (5.0 + 8.0 + 7.0) / 3.0     // 6.67
+	oldAvgQueue := (10.0 + 15.0 + 20.0) / 3.0           // 15.0
+	newAvgQueue := (5.0 + 8.0 + 7.0) / 3.0              // 6.67
 	expectedQueueReduction := oldAvgQueue - newAvgQueue // 8.33
 
 	if abs(metrics.StartupTimeReduction-expectedQueueReduction) > 0.01 {
-		t.Errorf("Expected startup time reduction of %f, got %f", 
+		t.Errorf("Expected startup time reduction of %f, got %f",
 			expectedQueueReduction, metrics.StartupTimeReduction)
 	}
 }

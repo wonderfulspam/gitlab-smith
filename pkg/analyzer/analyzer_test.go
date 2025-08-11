@@ -941,8 +941,8 @@ func TestHasBranchSpecificRules(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "Job with no rules",
-			job: &parser.JobConfig{},
+			name:     "Job with no rules",
+			job:      &parser.JobConfig{},
 			expected: false,
 		},
 	}
@@ -1005,8 +1005,8 @@ func TestHasMRSpecificRules(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "Job with no rules",
-			job: &parser.JobConfig{},
+			name:     "Job with no rules",
+			job:      &parser.JobConfig{},
 			expected: false,
 		},
 	}

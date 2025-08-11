@@ -49,6 +49,14 @@ gitlab-smith refactor --old .gitlab-ci.yml --new .gitlab-ci-new.yml --format tab
 
 # Full testing mode with local GitLab
 gitlab-smith refactor --old .gitlab-ci.yml --new .gitlab-ci-new.yml --full-test
+
+# Generate visual pipeline diagrams
+gitlab-smith visualize .gitlab-ci.yml --format mermaid
+gitlab-smith visualize .gitlab-ci.yml --format dot --output pipeline.dot
+
+# Visual comparison between configurations
+gitlab-smith refactor --old .gitlab-ci.yml --new .gitlab-ci-new.yml --pipeline-compare --format mermaid
+gitlab-smith refactor --old .gitlab-ci.yml --new .gitlab-ci-new.yml --pipeline-compare --format dot --output comparison.dot
 ```
 
 ## Architecture
@@ -78,7 +86,7 @@ gitlab-smith/
 2. **Differ Module** (`pkg/differ/`): Performs semantic comparison between configurations
 3. **Analyzer Module** (`pkg/analyzer/`): Static analysis for common issues and optimizations
 4. **Deployer Module** (`pkg/deployer/`): Manages local GitLab instance deployment
-5. **Renderer Module** (`pkg/renderer/`): Renders and compares pipeline executions
+5. **Renderer Module** (`pkg/renderer/`): Renders and compares pipeline executions with visual diagram support
 
 ### Implementation Phases
 
@@ -105,6 +113,37 @@ gitlab-smith/
 - Full testing mode validates actual pipeline behavior changes
 - Focus on semantic differences, not syntactic changes
 - Performance testing requires actual runner deployment and job execution
+
+## Visual Pipeline Rendering
+
+The renderer module now supports generating visual representations of GitLab CI pipelines to help understand the impact of refactoring changes on pipeline structure.
+
+### Supported Formats
+
+1. **Mermaid Diagrams**: Interactive flowcharts that can be viewed online at [mermaid.live](https://mermaid.live/)
+2. **DOT Graphs**: GraphViz format that can be converted to images using `dot -Tpng -o output.png input.dot`
+
+### Visual Features
+
+- **Stage Grouping**: Jobs are organized by stages with clear visual separation
+- **Dependency Visualization**: Shows job dependencies and execution flow
+- **Color Coding**: Different colors for build, test, and deploy stages
+- **Side-by-Side Comparison**: Before/after pipeline structure comparison
+- **Performance Highlighting**: Visual indicators for performance improvements/degradations
+
+### Usage Examples
+
+```bash
+# Generate a Mermaid diagram of your pipeline
+gitlab-smith visualize .gitlab-ci.yml --format mermaid
+
+# Create a DOT graph and convert to PNG
+gitlab-smith visualize .gitlab-ci.yml --format dot --output pipeline.dot
+dot -Tpng -o pipeline.png pipeline.dot
+
+# Compare two configurations visually
+gitlab-smith refactor --old before.yml --new after.yml --pipeline-compare --format mermaid
+```
 
 ## Test Infrastructure
 

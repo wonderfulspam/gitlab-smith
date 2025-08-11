@@ -1,9 +1,9 @@
 package analyzer
 
 import (
+	"github.com/emt/gitlab-smith/pkg/parser"
 	"strings"
 	"testing"
-	"github.com/emt/gitlab-smith/pkg/parser"
 )
 
 func TestCheckTemplateComplexity(t *testing.T) {
@@ -56,14 +56,14 @@ func TestCheckTemplateComplexity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := &AnalysisResult{Issues: []Issue{}}
 			checkTemplateComplexity(tt.config, result)
-			
+
 			complexityIssues := 0
 			for _, issue := range result.Issues {
 				if issue.Type == IssueTypeMaintainability && issue.Path == "templates..level4" {
 					complexityIssues++
 				}
 			}
-			
+
 			if complexityIssues != tt.expected {
 				t.Errorf("checkTemplateComplexity() = %d issues, expected %d", complexityIssues, tt.expected)
 			}
@@ -113,15 +113,15 @@ func TestCheckRedundantInheritance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := &AnalysisResult{Issues: []Issue{}}
 			checkRedundantInheritance(tt.config, result)
-			
+
 			redundancyIssues := 0
 			for _, issue := range result.Issues {
-				if issue.Type == IssueTypeMaintainability && 
-				   issue.Path == "templates..child.before_script" {
+				if issue.Type == IssueTypeMaintainability &&
+					issue.Path == "templates..child.before_script" {
 					redundancyIssues++
 				}
 			}
-			
+
 			if redundancyIssues != tt.expected {
 				t.Errorf("checkRedundantInheritance() = %d issues, expected %d", redundancyIssues, tt.expected)
 			}
@@ -162,14 +162,14 @@ func TestCheckMatrixOpportunities(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := &AnalysisResult{Issues: []Issue{}}
 			checkMatrixOpportunities(tt.config, result)
-			
+
 			matrixIssues := 0
 			for _, issue := range result.Issues {
 				if issue.Type == IssueTypePerformance {
 					matrixIssues++
 				}
 			}
-			
+
 			if matrixIssues != tt.expected {
 				t.Errorf("checkMatrixOpportunities() = %d issues, expected %d", matrixIssues, tt.expected)
 			}
@@ -213,14 +213,14 @@ func TestCheckIncludeOptimization(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := &AnalysisResult{Issues: []Issue{}}
 			checkIncludeOptimization(tt.config, result)
-			
+
 			includeIssues := 0
 			for _, issue := range result.Issues {
 				if issue.Type == IssueTypeMaintainability && issue.Path == "include" {
 					includeIssues++
 				}
 			}
-			
+
 			if includeIssues != tt.expected {
 				t.Errorf("checkIncludeOptimization() = %d issues, expected %d", includeIssues, tt.expected)
 			}
@@ -235,31 +235,31 @@ func TestHelperFunctions(t *testing.T) {
 			".level1": {Extends: []string{".base"}},
 			".level2": {Extends: []string{".level1"}},
 		}
-		
+
 		depth := calculateTemplateDepth(".level2", templates, make(map[string]bool))
 		if depth != 3 {
 			t.Errorf("calculateTemplateDepth() = %d, expected 3", depth)
 		}
 	})
-	
+
 	t.Run("findRedundantCommands", func(t *testing.T) {
 		parent := []string{"echo parent", "npm install"}
 		child := []string{"echo parent", "echo child"}
-		
+
 		redundant := findRedundantCommands(child, parent)
 		if len(redundant) != 1 || redundant[0] != "echo parent" {
 			t.Errorf("findRedundantCommands() = %v, expected [\"echo parent\"]", redundant)
 		}
 	})
-	
+
 	t.Run("getTemplates", func(t *testing.T) {
 		config := &parser.GitLabConfig{
 			Jobs: map[string]*parser.JobConfig{
-				".template":   {Image: "alpine"},
-				"actual_job":  {Stage: "build"},
+				".template":  {Image: "alpine"},
+				"actual_job": {Stage: "build"},
 			},
 		}
-		
+
 		templates := getTemplates(config)
 		if len(templates) != 1 || templates[".template"] == nil {
 			t.Errorf("getTemplates() should return only template jobs starting with '.'")
@@ -274,8 +274,8 @@ func TestCheckDuplicatedBeforeScripts_Enhanced(t *testing.T) {
 		name     string
 		config   *parser.GitLabConfig
 		expected struct {
-			exact     int // exact duplicates
-			similar   int // similar with high overlap
+			exact   int // exact duplicates
+			similar int // similar with high overlap
 		}
 	}{
 		{
@@ -308,7 +308,7 @@ func TestCheckDuplicatedBeforeScripts_Enhanced(t *testing.T) {
 						"echo 'Starting backend build...'",
 						"apt-get update -qq",
 						"apt-get install -y -qq git curl",
-						"node --version", 
+						"node --version",
 						"npm --version",
 						"npm ci --cache .npm --prefer-offline",
 					}},
@@ -328,7 +328,7 @@ func TestCheckDuplicatedBeforeScripts_Enhanced(t *testing.T) {
 
 			exactCount := 0
 			similarCount := 0
-			
+
 			for _, issue := range result.Issues {
 				if strings.Contains(issue.Message, "Duplicate before_script blocks") {
 					exactCount++
@@ -385,7 +385,7 @@ func TestCheckDuplicatedSetup_Enhanced(t *testing.T) {
 			setupCount := 0
 			imageCount := 0
 			serviceCount := 0
-			
+
 			for _, issue := range result.Issues {
 				if strings.Contains(issue.Message, "Duplicate setup configuration") {
 					setupCount++
@@ -433,11 +433,11 @@ func TestCheckMissingExtends(t *testing.T) {
 			name: "templates already exist",
 			config: &parser.GitLabConfig{
 				Jobs: map[string]*parser.JobConfig{
-					".node_template": {Stage: "test", Image: "node:16"},
+					".node_template":   {Stage: "test", Image: "node:16"},
 					".python_template": {Stage: "build", Image: "python:3.9"},
-					"job1": {Stage: "test", Image: "node:16", Script: []string{"npm test"}},
-					"job2": {Stage: "test", Image: "node:16", Script: []string{"npm test"}},
-					"job3": {Stage: "test", Image: "node:16", Script: []string{"npm test"}},
+					"job1":             {Stage: "test", Image: "node:16", Script: []string{"npm test"}},
+					"job2":             {Stage: "test", Image: "node:16", Script: []string{"npm test"}},
+					"job3":             {Stage: "test", Image: "node:16", Script: []string{"npm test"}},
 				},
 			},
 			expected: 0, // Templates exist, should not suggest more
@@ -468,7 +468,7 @@ func TestCheckMissingNeeds(t *testing.T) {
 		name     string
 		config   *parser.GitLabConfig
 		expected struct {
-			needsOpportunities   int
+			needsOpportunities  int
 			parallelizationTips int
 		}
 	}{
@@ -483,7 +483,7 @@ func TestCheckMissingNeeds(t *testing.T) {
 				},
 			},
 			expected: struct {
-				needsOpportunities   int
+				needsOpportunities  int
 				parallelizationTips int
 			}{needsOpportunities: 1, parallelizationTips: 0},
 		},
@@ -499,7 +499,7 @@ func TestCheckMissingNeeds(t *testing.T) {
 				},
 			},
 			expected: struct {
-				needsOpportunities   int
+				needsOpportunities  int
 				parallelizationTips int
 			}{needsOpportunities: 0, parallelizationTips: 1},
 		},
@@ -512,7 +512,7 @@ func TestCheckMissingNeeds(t *testing.T) {
 
 			needsCount := 0
 			parallelCount := 0
-			
+
 			for _, issue := range result.Issues {
 				if strings.Contains(issue.Message, "could benefit from 'needs'") {
 					needsCount++
@@ -616,7 +616,7 @@ func TestCalculateScriptOverlap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := calculateScriptOverlap(tt.script1, tt.script2)
-			
+
 			// Allow small floating point differences
 			if abs(result-tt.expected) > 0.01 {
 				t.Errorf("Expected overlap %.2f, got %.2f", tt.expected, result)

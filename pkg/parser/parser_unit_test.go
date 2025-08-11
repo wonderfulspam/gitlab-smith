@@ -79,7 +79,7 @@ job1:
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
-			
+
 			if len(config.Jobs) != tt.expected {
 				t.Errorf("Parse() found %d jobs, expected %d", len(config.Jobs), tt.expected)
 				t.Logf("Jobs found: %v", getJobNames(config.Jobs))
@@ -98,17 +98,17 @@ job:
   script:
     - echo test
 `
-	
+
 	config, err := Parse([]byte(yaml))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	
+
 	job := config.Jobs["job"]
 	if job == nil {
 		t.Fatal("job not found")
 	}
-	
+
 	extends := job.GetExtends()
 	if len(extends) != 1 || extends[0] != ".parent" {
 		t.Errorf("job.GetExtends() = %v, expected [.parent]", extends)
@@ -160,14 +160,14 @@ test:unit:
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	
+
 	expectedJobs := []string{".base_job", ".node_base", "validate:yaml", "build:frontend", "test:unit"}
 	if len(config.Jobs) != len(expectedJobs) {
 		t.Errorf("Parse() found %d jobs, expected %d", len(config.Jobs), len(expectedJobs))
 		t.Logf("Jobs found: %v", getJobNames(config.Jobs))
 		t.Logf("Expected: %v", expectedJobs)
 	}
-	
+
 	// Test specific job parsing
 	validateJob := config.Jobs["validate:yaml"]
 	if validateJob == nil {
@@ -175,7 +175,7 @@ test:unit:
 	} else if validateJob.Stage != "validate" {
 		t.Errorf("validate:yaml stage = %s, expected validate", validateJob.Stage)
 	}
-	
+
 	// Test template parsing
 	nodeBase := config.Jobs[".node_base"]
 	if nodeBase == nil {

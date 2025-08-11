@@ -65,15 +65,15 @@ deploy-job:
 
 func TestWorkflowEvaluator(t *testing.T) {
 	tests := []struct {
-		name       string
-		workflow   *Workflow
-		context    *PipelineContext
-		shouldRun  bool
+		name      string
+		workflow  *Workflow
+		context   *PipelineContext
+		shouldRun bool
 	}{
 		{
-			name: "No workflow - should create pipeline",
-			workflow: nil,
-			context: DefaultPipelineContext(),
+			name:      "No workflow - should create pipeline",
+			workflow:  nil,
+			context:   DefaultPipelineContext(),
 			shouldRun: true,
 		},
 		{
@@ -85,7 +85,7 @@ func TestWorkflowEvaluator(t *testing.T) {
 				},
 			},
 			context: &PipelineContext{
-				Event: "push",
+				Event:  "push",
 				Branch: "main",
 			},
 			shouldRun: true,
@@ -100,7 +100,7 @@ func TestWorkflowEvaluator(t *testing.T) {
 			},
 			context: &PipelineContext{
 				Event: "merge_request_event",
-				IsMR: true,
+				IsMR:  true,
 			},
 			shouldRun: false,
 		},
@@ -113,7 +113,7 @@ func TestWorkflowEvaluator(t *testing.T) {
 				},
 			},
 			context: &PipelineContext{
-				Branch: "main",
+				Branch:       "main",
 				IsMainBranch: true,
 			},
 			shouldRun: true,
@@ -127,7 +127,7 @@ func TestWorkflowEvaluator(t *testing.T) {
 				},
 			},
 			context: &PipelineContext{
-				Branch: "feature-branch",
+				Branch:       "feature-branch",
 				IsMainBranch: false,
 			},
 			shouldRun: false,
@@ -141,7 +141,7 @@ func TestWorkflowEvaluator(t *testing.T) {
 			}
 			evaluator := NewWorkflowEvaluator(config, tt.context)
 			result := evaluator.ShouldCreatePipeline()
-			
+
 			if result != tt.shouldRun {
 				t.Errorf("Expected pipeline creation %v, got %v", tt.shouldRun, result)
 			}
@@ -189,7 +189,7 @@ mr-only-job:
 
 	// Test main branch simulation
 	mainJobs := config.SimulateMainBranchPipeline()
-	
+
 	if !mainJobs["test-job"] {
 		t.Error("test-job should run on main branch")
 	}
@@ -202,7 +202,7 @@ mr-only-job:
 
 	// Test MR simulation
 	mrJobs := config.SimulateMergeRequestPipeline("feature-branch")
-	
+
 	if !mrJobs["test-job"] {
 		t.Error("test-job should run in MR pipeline")
 	}
