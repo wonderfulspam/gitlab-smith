@@ -76,6 +76,7 @@ func Analyze(config *parser.GitLabConfig) *AnalysisResult {
 	checkMissingExtends(config, result)
 	checkMissingNeeds(config, result)
 	checkMissingTemplates(config, result)
+	checkWorkflowOptimization(config, result)
 
 	result.TotalIssues = len(result.Issues)
 	result.Summary = calculateSummary(result.Issues)
@@ -1231,4 +1232,218 @@ func containsAllJobs(templateJobs []string, jobsToCheck []string) bool {
 	}
 	
 	return true
+}
+
+// checkWorkflowOptimization identifies workflow optimization opportunities
+func checkWorkflowOptimization(config *parser.GitLabConfig, result *AnalysisResult) {
+	// Check if workflow is missing but jobs have different rules
+	checkMissingWorkflow(config, result)
+	
+	// Check for redundant job rules that could be simplified with workflow
+	checkRedundantJobRules(config, result)
+	
+	// Check for branch-specific optimization opportunities
+	checkBranchSpecificOptimization(config, result)
+}
+
+// checkMissingWorkflow checks if workflow should be used to control pipeline creation
+func checkMissingWorkflow(config *parser.GitLabConfig, result *AnalysisResult) {
+	if config.Workflow != nil {
+		return // Workflow is already defined
+	}
+	
+	// Count jobs that have branch-specific rules
+	branchSpecificJobs := 0
+	mrSpecificJobs := 0
+	
+	for _, job := range config.Jobs {
+		if hasBranchSpecificRules(job) {
+			branchSpecificJobs++
+		}
+		if hasMRSpecificRules(job) {
+			mrSpecificJobs++
+		}
+	}
+	
+	// If many jobs have branch-specific rules, suggest workflow
+	totalJobs := len(config.Jobs)
+	if branchSpecificJobs > totalJobs/2 && totalJobs > 1 {
+		result.Issues = append(result.Issues, Issue{
+			Type:       IssueTypePerformance,
+			Severity:   SeverityMedium,
+			Path:       "workflow",
+			Message:    fmt.Sprintf("%d out of %d jobs have branch-specific rules", branchSpecificJobs, totalJobs),
+			Suggestion: "Consider using workflow: rules to control pipeline creation instead of individual job rules",
+		})
+	}
+	
+	// If many jobs are MR-specific, suggest workflow optimization
+	if mrSpecificJobs > totalJobs/3 && totalJobs > 2 {
+		result.Issues = append(result.Issues, Issue{
+			Type:       IssueTypePerformance,
+			Severity:   SeverityMedium,
+			Path:       "workflow",
+			Message:    fmt.Sprintf("%d jobs appear to be merge request specific", mrSpecificJobs),
+			Suggestion: "Consider using workflow: rules to create separate main and MR pipelines",
+		})
+	}
+}
+
+// checkRedundantJobRules identifies jobs with redundant rules
+func checkRedundantJobRules(config *parser.GitLabConfig, result *AnalysisResult) {
+	// Look for common rule patterns across jobs
+	rulePatterns := make(map[string][]string) // rule pattern -> job names
+	
+	for jobName, job := range config.Jobs {
+		if len(job.Rules) == 0 {
+			continue
+		}
+		
+		// Create a simplified pattern from the rules
+		pattern := createRulePattern(job.Rules)
+		if pattern != "" {
+			rulePatterns[pattern] = append(rulePatterns[pattern], jobName)
+		}
+	}
+	
+	// Report patterns that appear in multiple jobs
+	for _, jobNames := range rulePatterns {
+		if len(jobNames) > 2 {
+			result.Issues = append(result.Issues, Issue{
+				Type:       IssueTypeMaintainability,
+				Severity:   SeverityLow,
+				Path:       "jobs",
+				Message:    fmt.Sprintf("Similar rule patterns found in %d jobs: %v", len(jobNames), jobNames),
+				Suggestion: "Consider using workflow rules or shared job templates to reduce duplication",
+			})
+		}
+	}
+}
+
+// checkBranchSpecificOptimization looks for branch-specific optimization opportunities
+func checkBranchSpecificOptimization(config *parser.GitLabConfig, result *AnalysisResult) {
+	if config.Workflow == nil {
+		return
+	}
+	
+	// Simulate different pipeline contexts to find optimization opportunities
+	mainJobs := config.SimulateMainBranchPipeline()
+	mrJobs := config.SimulateMergeRequestPipeline("feature-branch")
+	
+	mainJobCount := 0
+	mrJobCount := 0
+	for _, runs := range mainJobs {
+		if runs {
+			mainJobCount++
+		}
+	}
+	for _, runs := range mrJobs {
+		if runs {
+			mrJobCount++
+		}
+	}
+	
+	totalJobs := len(config.Jobs)
+	
+	// If there's significant difference between main and MR pipelines, suggest optimization
+	if absInt(mainJobCount-mrJobCount) > totalJobs/3 && totalJobs > 3 {
+		result.Issues = append(result.Issues, Issue{
+			Type:       IssueTypePerformance,
+			Severity:   SeverityLow,
+			Path:       "workflow",
+			Message:    fmt.Sprintf("Main branch runs %d jobs, MR runs %d jobs out of %d total", 
+				mainJobCount, mrJobCount, totalJobs),
+			Suggestion: "Pipeline contexts show significant differences - consider optimizing for better resource usage",
+		})
+	}
+}
+
+// hasBranchSpecificRules checks if job has rules specific to certain branches
+func hasBranchSpecificRules(job *parser.JobConfig) bool {
+	for _, rule := range job.Rules {
+		if strings.Contains(rule.If, "$CI_COMMIT_BRANCH") ||
+		   strings.Contains(rule.If, "main") ||
+		   strings.Contains(rule.If, "master") {
+			return true
+		}
+	}
+	
+	// Check only/except for branch references
+	if job.Only != nil {
+		if onlyStr, ok := job.Only.(string); ok {
+			if onlyStr == "main" || onlyStr == "master" {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
+// hasMRSpecificRules checks if job has rules specific to merge requests
+func hasMRSpecificRules(job *parser.JobConfig) bool {
+	for _, rule := range job.Rules {
+		if strings.Contains(rule.If, "$CI_MERGE_REQUEST_ID") ||
+		   strings.Contains(rule.If, "merge_request_event") {
+			return true
+		}
+	}
+	
+	// Check only/except for MR references
+	if job.Only != nil {
+		if onlyStr, ok := job.Only.(string); ok {
+			if onlyStr == "merge_requests" {
+				return true
+			}
+		}
+		if onlySlice, ok := job.Only.([]interface{}); ok {
+			for _, item := range onlySlice {
+				if str, ok := item.(string); ok && str == "merge_requests" {
+					return true
+				}
+			}
+		}
+	}
+	
+	return false
+}
+
+// createRulePattern creates a simplified pattern from job rules for comparison
+func createRulePattern(rules []parser.Rule) string {
+	if len(rules) == 0 {
+		return ""
+	}
+	
+	var patterns []string
+	for _, rule := range rules {
+		pattern := ""
+		if rule.If != "" {
+			// Simplify if conditions to common patterns
+			if strings.Contains(rule.If, "$CI_PIPELINE_SOURCE") {
+				pattern += "source-check"
+			}
+			if strings.Contains(rule.If, "$CI_COMMIT_BRANCH") {
+				pattern += "branch-check"
+			}
+			if strings.Contains(rule.If, "$CI_MERGE_REQUEST_ID") {
+				pattern += "mr-check"
+			}
+		}
+		if rule.When != "" {
+			pattern += "-" + rule.When
+		}
+		if pattern != "" {
+			patterns = append(patterns, pattern)
+		}
+	}
+	
+	return strings.Join(patterns, "|")
+}
+
+// absInt returns absolute value of integer
+func absInt(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }

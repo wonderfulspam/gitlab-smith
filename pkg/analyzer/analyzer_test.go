@@ -722,3 +722,301 @@ func containsSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+func TestCheckWorkflowOptimization(t *testing.T) {
+	t.Run("Missing workflow with branch-specific rules", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"job1": {
+					Rules: []parser.Rule{
+						{If: `$CI_COMMIT_BRANCH == "main"`},
+					},
+				},
+				"job2": {
+					Rules: []parser.Rule{
+						{If: `$CI_COMMIT_BRANCH == "main"`},
+					},
+				},
+			},
+		}
+
+		result := &AnalysisResult{Issues: []Issue{}}
+		checkWorkflowOptimization(config, result)
+
+		found := false
+		for _, issue := range result.Issues {
+			if issue.Path == "workflow" && issue.Type == IssueTypePerformance {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Expected workflow optimization issue for branch-specific rules")
+		}
+	})
+
+	t.Run("Missing workflow with MR-specific rules", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"job1": {
+					Rules: []parser.Rule{
+						{If: `$CI_MERGE_REQUEST_ID`},
+					},
+				},
+				"job2": {
+					Rules: []parser.Rule{
+						{If: `$CI_MERGE_REQUEST_ID`},
+					},
+				},
+				"job3": {
+					Rules: []parser.Rule{
+						{If: `$CI_MERGE_REQUEST_ID`},
+					},
+				},
+			},
+		}
+
+		result := &AnalysisResult{Issues: []Issue{}}
+		checkWorkflowOptimization(config, result)
+
+		found := false
+		for _, issue := range result.Issues {
+			if issue.Path == "workflow" && issue.Type == IssueTypePerformance {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Expected workflow optimization issue for MR-specific rules")
+		}
+	})
+
+	t.Run("Redundant job rules", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Jobs: map[string]*parser.JobConfig{
+				"job1": {
+					Rules: []parser.Rule{
+						{If: `$CI_PIPELINE_SOURCE == "push"`},
+					},
+				},
+				"job2": {
+					Rules: []parser.Rule{
+						{If: `$CI_PIPELINE_SOURCE == "push"`},
+					},
+				},
+				"job3": {
+					Rules: []parser.Rule{
+						{If: `$CI_PIPELINE_SOURCE == "push"`},
+					},
+				},
+			},
+		}
+
+		result := &AnalysisResult{Issues: []Issue{}}
+		checkWorkflowOptimization(config, result)
+
+		found := false
+		for _, issue := range result.Issues {
+			if issue.Path == "jobs" && issue.Type == IssueTypeMaintainability {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Expected maintainability issue for redundant job rules")
+		}
+	})
+
+	t.Run("Branch-specific optimization with workflow", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Workflow: &parser.Workflow{
+				Rules: []parser.Rule{
+					{When: "always"},
+				},
+			},
+			Jobs: map[string]*parser.JobConfig{
+				"main-job-1": {
+					Rules: []parser.Rule{
+						{If: `$CI_COMMIT_BRANCH == "main"`},
+					},
+				},
+				"main-job-2": {
+					Rules: []parser.Rule{
+						{If: `$CI_COMMIT_BRANCH == "main"`},
+					},
+				},
+				"main-job-3": {
+					Rules: []parser.Rule{
+						{If: `$CI_COMMIT_BRANCH == "main"`},
+					},
+				},
+				"mr-job": {
+					Rules: []parser.Rule{
+						{If: `$CI_MERGE_REQUEST_ID`},
+					},
+				},
+				"common-job": {},
+			},
+		}
+
+		result := &AnalysisResult{Issues: []Issue{}}
+		checkWorkflowOptimization(config, result)
+
+		// Should detect optimization opportunity due to different job counts
+		// Main branch: 4 jobs (3 main-jobs + common-job), MR: 2 jobs (mr-job + common-job)
+		// Difference: |4-2| = 2, which is > 5/3 = 1.67, so should trigger
+		found := false
+		for _, issue := range result.Issues {
+			if issue.Path == "workflow" && issue.Type == IssueTypePerformance {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Expected performance issue for branch-specific optimization")
+		}
+	})
+
+	t.Run("No issues with optimal workflow", func(t *testing.T) {
+		config := &parser.GitLabConfig{
+			Workflow: &parser.Workflow{
+				Rules: []parser.Rule{
+					{If: `$CI_PIPELINE_SOURCE == "push"`, When: "always"},
+				},
+			},
+			Jobs: map[string]*parser.JobConfig{
+				"test": {
+					Script: []string{"echo test"},
+				},
+			},
+		}
+
+		result := &AnalysisResult{Issues: []Issue{}}
+		checkWorkflowOptimization(config, result)
+
+		for _, issue := range result.Issues {
+			if issue.Path == "workflow" {
+				t.Errorf("Unexpected workflow issue: %s", issue.Message)
+			}
+		}
+	})
+}
+
+func TestHasBranchSpecificRules(t *testing.T) {
+	tests := []struct {
+		name     string
+		job      *parser.JobConfig
+		expected bool
+	}{
+		{
+			name: "Job with branch-specific if condition",
+			job: &parser.JobConfig{
+				Rules: []parser.Rule{
+					{If: `$CI_COMMIT_BRANCH == "main"`},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Job with main branch only",
+			job: &parser.JobConfig{
+				Only: "main",
+			},
+			expected: true,
+		},
+		{
+			name: "Job with master branch only",
+			job: &parser.JobConfig{
+				Only: "master",
+			},
+			expected: true,
+		},
+		{
+			name: "Job without branch-specific rules",
+			job: &parser.JobConfig{
+				Rules: []parser.Rule{
+					{If: `$CI_PIPELINE_SOURCE == "push"`},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Job with no rules",
+			job: &parser.JobConfig{},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasBranchSpecificRules(tt.job)
+			if result != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestHasMRSpecificRules(t *testing.T) {
+	tests := []struct {
+		name     string
+		job      *parser.JobConfig
+		expected bool
+	}{
+		{
+			name: "Job with MR ID check",
+			job: &parser.JobConfig{
+				Rules: []parser.Rule{
+					{If: `$CI_MERGE_REQUEST_ID`},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Job with merge request event check",
+			job: &parser.JobConfig{
+				Rules: []parser.Rule{
+					{If: `$CI_PIPELINE_SOURCE == "merge_request_event"`},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Job with merge_requests only",
+			job: &parser.JobConfig{
+				Only: "merge_requests",
+			},
+			expected: true,
+		},
+		{
+			name: "Job with merge_requests in array",
+			job: &parser.JobConfig{
+				Only: []interface{}{"merge_requests", "pushes"},
+			},
+			expected: true,
+		},
+		{
+			name: "Job without MR-specific rules",
+			job: &parser.JobConfig{
+				Rules: []parser.Rule{
+					{If: `$CI_COMMIT_BRANCH == "main"`},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Job with no rules",
+			job: &parser.JobConfig{},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasMRSpecificRules(tt.job)
+			if result != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
