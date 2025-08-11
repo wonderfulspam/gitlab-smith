@@ -1,6 +1,7 @@
 package maintainability
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
@@ -19,6 +20,9 @@ func RegisterChecks(registry CheckRegistry) {
 	registry.Register("duplicated_code", types.IssueTypeMaintainability, CheckDuplicatedCode)
 	registry.Register("stages_definition", types.IssueTypeMaintainability, CheckStagesDefinition)
 	registry.Register("duplicated_before_scripts", types.IssueTypeMaintainability, CheckDuplicatedBeforeScripts)
+	registry.Register("duplicated_cache_config", types.IssueTypeMaintainability, CheckDuplicatedCacheConfig)
+	registry.Register("duplicated_image_config", types.IssueTypeMaintainability, CheckDuplicatedImageConfig)
+	registry.Register("duplicated_setup", types.IssueTypeMaintainability, CheckDuplicatedSetup)
 	registry.Register("verbose_rules", types.IssueTypeMaintainability, CheckVerboseRules)
 	registry.Register("include_optimization", types.IssueTypeMaintainability, CheckIncludeOptimization)
 }
@@ -236,6 +240,107 @@ func CheckIncludeOptimization(config *parser.GitLabConfig) []types.Issue {
 			Message:    "Multiple local includes could be consolidated",
 			Suggestion: "Consider grouping related local includes into fewer files",
 		})
+	}
+
+	return issues
+}
+
+func CheckDuplicatedCacheConfig(config *parser.GitLabConfig) []types.Issue {
+	var issues []types.Issue
+	cacheSets := make(map[string][]string)
+
+	for jobName, job := range config.Jobs {
+		// Skip template jobs (starting with .) from duplication analysis
+		if strings.HasPrefix(jobName, ".") {
+			continue
+		}
+		if job.Cache != nil {
+			// Create a unique key for the cache configuration
+			cacheKey := fmt.Sprintf("key:%s_paths:%s", job.Cache.Key, strings.Join(job.Cache.Paths, ","))
+			cacheSets[cacheKey] = append(cacheSets[cacheKey], jobName)
+		}
+	}
+
+	// Report duplicate cache configurations
+	for _, jobNames := range cacheSets {
+		if len(jobNames) > 1 {
+			issues = append(issues, types.Issue{
+				Type:       types.IssueTypeMaintainability,
+				Severity:   types.SeverityMedium,
+				Path:       "jobs.*.cache",
+				Message:    "Duplicate cache configuration in jobs: " + strings.Join(jobNames, ", "),
+				Suggestion: "Consider consolidating duplicate cache configuration into default block or templates",
+			})
+		}
+	}
+
+	return issues
+}
+
+func CheckDuplicatedImageConfig(config *parser.GitLabConfig) []types.Issue {
+	var issues []types.Issue
+	imageSets := make(map[string][]string)
+
+	for jobName, job := range config.Jobs {
+		// Skip template jobs (starting with .) from duplication analysis
+		if strings.HasPrefix(jobName, ".") {
+			continue
+		}
+		if job.Image != "" {
+			imageSets[job.Image] = append(imageSets[job.Image], jobName)
+		}
+	}
+
+	// Report duplicate image configurations
+	for image, jobNames := range imageSets {
+		if len(jobNames) > 2 {
+			issues = append(issues, types.Issue{
+				Type:       types.IssueTypeMaintainability,
+				Severity:   types.SeverityLow,
+				Path:       "jobs.*.image",
+				Message:    fmt.Sprintf("Duplicate image configuration '%s' in %d jobs: %s", image, len(jobNames), strings.Join(jobNames, ", ")),
+				Suggestion: "Consider consolidating duplicate image configuration into default block",
+			})
+		}
+	}
+
+	return issues
+}
+
+func CheckDuplicatedSetup(config *parser.GitLabConfig) []types.Issue {
+	var issues []types.Issue
+	setupPatterns := make(map[string][]string)
+
+	for jobName, job := range config.Jobs {
+		// Skip template jobs (starting with .) from duplication analysis
+		if strings.HasPrefix(jobName, ".") {
+			continue
+		}
+
+		// Check for common setup patterns in scripts
+		if len(job.Script) > 0 {
+			// Look for common setup commands like npm ci, pip install, etc.
+			for _, line := range job.Script {
+				if strings.Contains(line, "npm ci") || strings.Contains(line, "npm install") ||
+					strings.Contains(line, "pip install") || strings.Contains(line, "bundle install") ||
+					strings.Contains(line, "composer install") || strings.Contains(line, "yarn install") {
+					setupPatterns[line] = append(setupPatterns[line], jobName)
+				}
+			}
+		}
+	}
+
+	// Report duplicate setup patterns
+	for pattern, jobNames := range setupPatterns {
+		if len(jobNames) > 1 {
+			issues = append(issues, types.Issue{
+				Type:       types.IssueTypeMaintainability,
+				Severity:   types.SeverityMedium,
+				Path:       "jobs.*.script",
+				Message:    fmt.Sprintf("Duplicate setup configuration '%s' in jobs: %s", pattern, strings.Join(jobNames, ", ")),
+				Suggestion: "Consider moving setup commands to before_script or default configuration",
+			})
+		}
 	}
 
 	return issues
