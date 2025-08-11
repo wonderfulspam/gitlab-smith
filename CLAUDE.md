@@ -76,7 +76,10 @@ gitlab-smith/
 │   └── *_test.go               # CLI command tests
 ├── pkg/
 │   ├── parser/                  # GitLab CI YAML parser & workflow evaluation
-│   │   ├── parser.go           # Main parsing logic with include resolution
+│   │   ├── parser.go           # Main parsing logic
+│   │   ├── types.go            # Core data structures and types
+│   │   ├── resolver.go         # Include resolution logic
+│   │   ├── simulation.go       # Pipeline simulation functionality
 │   │   ├── workflow.go         # Workflow rules and pipeline context
 │   │   └── *_test.go          # Parser tests
 │   ├── analyzer/               # Static analysis with rule engine
@@ -88,6 +91,11 @@ gitlab-smith/
 │   │   ├── security/          # Security analysis rules
 │   │   ├── reliability/       # Reliability analysis rules
 │   │   ├── maintainability/   # Maintainability analysis rules
+│   │   │   ├── maintainability.go    # Rule registration
+│   │   │   ├── naming_checks.go      # Job naming validation
+│   │   │   ├── complexity_checks.go  # Script and rule complexity
+│   │   │   ├── duplication_checks.go # Code duplication detection
+│   │   │   └── structure_checks.go   # Configuration structure
 │   │   └── *_test.go         # Analyzer tests
 │   ├── differ/                 # Semantic diffing engine
 │   │   ├── differ.go          # Configuration comparison logic
@@ -96,7 +104,11 @@ gitlab-smith/
 │   │   ├── deployer.go        # Docker-based GitLab deployment
 │   │   └── *_test.go         # Deployer tests
 │   ├── renderer/              # Pipeline rendering & visualization
-│   │   ├── renderer.go        # Pipeline execution simulation
+│   │   ├── renderer.go        # Core renderer and GitLab API client
+│   │   ├── types.go           # Pipeline execution data structures
+│   │   ├── simulation.go      # Pipeline execution simulation
+│   │   ├── comparison.go      # Pipeline comparison logic
+│   │   ├── formatter.go       # Output formatting (table, JSON)
 │   │   ├── visual.go          # Mermaid & DOT diagram generation
 │   │   └── *_test.go         # Renderer tests
 │   └── validator/             # Refactoring validation & test scenarios
