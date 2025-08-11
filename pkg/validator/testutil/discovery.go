@@ -255,10 +255,11 @@ func DiscoverGoldStandardCases(casesPath string) ([]*GoldStandardCase, error) {
 // GenerateGoldStandardDescription generates a description for a gold standard case
 func GenerateGoldStandardDescription(caseName string) string {
 	descriptions := map[string]string{
-		"golang-best-practices": "High-quality Go CI/CD pipeline with industry best practices",
-		"nodejs-best-practices": "Optimized Node.js CI/CD pipeline with comprehensive testing",
-		"python-best-practices": "Production-ready Python CI/CD pipeline with security scanning",
-		"docker-best-practices": "Container-focused CI/CD pipeline with multi-stage builds",
+		"golang-best-practices":         "High-quality Go CI/CD pipeline with industry best practices",
+		"nodejs-best-practices":         "Optimized Node.js CI/CD pipeline with comprehensive testing and security",
+		"python-django-best-practices":  "Production-ready Django CI/CD pipeline with matrix testing and security",
+		"docker-multistage-best-practices": "Container-focused CI/CD pipeline with multi-stage builds and security scanning",
+		"rust-best-practices":           "Comprehensive Rust CI/CD pipeline with cross-compilation and toolchain management",
 	}
 
 	if desc, exists := descriptions[caseName]; exists {

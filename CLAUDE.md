@@ -129,8 +129,9 @@ gitlab-smith/
 │   │       ├── before/           # Original configuration
 │   │       ├── after/            # Refactored configuration
 │   │       └── config.yaml       # Test expectations
-│   └── realistic-app-scenarios/   # Real-world application examples
-│       └── flask-microservice/   # Complete Flask app CI/CD
+│   ├── realistic-app-scenarios/   # Real-world application examples
+│   │   └── flask-microservice/   # Complete Flask app CI/CD
+│   └── gold-standard-cases/      # High-quality CI configs that should produce zero issues
 ├── implementation-state.json      # Streamlined implementation status
 └── pipeline-emulator-spec.md     # Detailed technical specification
 ```
@@ -173,8 +174,9 @@ gitlab-smith/
 
 - **Simple refactoring cases**: Paired `*-before.yml` and `*-after.yml` files in `test/simple-refactoring-cases/`
 - **Complex scenarios**: Directories with `before/` and `after/` subdirectories in `test/refactoring-scenarios/`
+- **Gold standard cases**: High-quality CI configurations in `test/gold-standard-cases/` that should produce **zero analyzer issues**
 - **Include files**: Should be in `after/ci/` or `before/ci/` relative to main `.gitlab-ci.yml`
-- **Test expectations**: Defined in `config.yaml` for each scenario
+- **Test expectations**: Defined in `config.yaml` for each scenario (except gold standards which must be flawless)
 
 ## Development Workflow
 
