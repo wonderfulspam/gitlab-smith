@@ -3,22 +3,34 @@ description: "Multi-environment matrix expansion optimization"
 
 expectations:
   should_succeed: true
-  expected_issue_reduction: 18  # Based on analysis
-  max_allowed_new_issues: 0     # Should be clean consolidation
+  expected_issues_resolved: 18  # Exact number expected
+  max_new_issues: 0     # Should be clean consolidation
   semantic_equivalence: false   # Matrix changes semantics
   performance_improvement: true # Matrix should improve performance
   minimum_jobs_analyzed: 14     # Should parse all environment variants
   
-  expected_issue_types:
-    maintainability: 14   # Repetitive configurations
-    performance: 4        # Matrix opportunities, caching
-    security: 0
-    reliability: 0
+  # Specific expected issues in BEFORE configuration
+  expected_before_issues:
+    - "Multiple similar jobs could use matrix"
+    - "Duplicate configuration"
+    - "Duplicate before_script blocks"
+    - "Duplicate setup configuration"
+    - "More than half of jobs don't use caching"
   
-  expected_issue_patterns:
-    - "Multiple similar jobs.*could use matrix"
-    - "Duplicate.*configuration"
+  # Specific expected improvements detected
+  expected_improvements:
+    - "Matrix strategy implementation for environment variants"
+    - "Consolidated duplicate configurations using templates"
+    - "Parallel execution optimization"
+    - "Cache configuration consolidation"
   
-  required_improvements:
-    - "matrix"        # Matrix consolidation is the key improvement
-    - "duplication"   # Remove repetitive configs
+  # Expected improvement tags
+  expected_improvement_tags:
+    - "matrix"
+    - "duplication"
+    - "consolidation"
+    - "templates"
+    - "parallel"
+  
+  # Expected remaining issues in AFTER configuration
+  expected_remaining_issues: []  # Should be clean

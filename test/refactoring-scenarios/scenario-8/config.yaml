@@ -3,27 +3,40 @@ description: "Nested template inheritance consolidation"
 
 expectations:
   should_succeed: true
-  expected_issue_reduction: 28  # Based on analysis showing 30 issues in before, 2 in after
-  max_allowed_new_issues: 2
+  expected_issues_resolved: 28  # Exact number expected
+  max_new_issues: 2
   semantic_equivalence: false   # Complex refactoring changes semantics
   performance_improvement: true # Matrix consolidation should improve performance
   minimum_jobs_analyzed: 22     # Should parse all jobs including templates
   
-  expected_issue_types:
-    maintainability: 26   # Deep inheritance, redundant commands
-    performance: 2        # Cache usage, matrix opportunities
-    security: 2          # Latest tag, exposed password
-    reliability: 0
-  
-  expected_issue_patterns:
+  # Specific expected issues in BEFORE configuration
+  expected_before_issues:
     - "Template has deep inheritance chain"
     - "Template repeats commands from parent"
-    - "Multiple similar jobs.*could use matrix strategy"
+    - "Multiple similar jobs could use matrix strategy"
     - "Using 'latest' tag"
     - "Potential secret in variable name"
+    - "Duplicate before_script blocks"
+    - "Duplicate setup configuration"
   
-  required_improvements:
-    - "template"      # Template complexity reduction
-    - "extends"       # Inheritance flattening
-    - "matrix"        # Matrix consolidation
-    - "redundancy"    # Duplicate command removal
+  # Specific expected improvements detected
+  expected_improvements:
+    - "Template inheritance flattening and optimization"
+    - "Matrix strategy implementation for similar jobs"
+    - "Redundant command removal from templates"
+    - "Security improvements for image tags and variables"
+    - "Template complexity reduction"
+  
+  # Expected improvement tags
+  expected_improvement_tags:
+    - "templates"
+    - "extends"
+    - "matrix"
+    - "redundancy"
+    - "consolidation"
+    - "variables"
+  
+  # Expected remaining issues in AFTER configuration
+  expected_remaining_issues:
+    - "Using 'latest' tag"
+    - "Artifacts configured without expiration"

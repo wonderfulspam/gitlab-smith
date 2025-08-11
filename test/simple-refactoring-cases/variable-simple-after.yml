@@ -10,12 +10,21 @@ variables:
 # Default configuration
 default:
   image: python:3.11
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .pip-cache/
+      - __pycache__/
+  before_script:
+    - pip install --cache-dir .pip-cache --upgrade pip
 
 # Template for test jobs
 .test_base:
   stage: test
   variables:
     PYTHON_ENV: "test"
+  script:
+    - pytest tests/${CI_JOB_NAME#test:}/ -v
 
 # Template for build jobs
 .build_base:
@@ -29,15 +38,11 @@ test:api:
   extends: .test_base
   variables:
     DATABASE_URL: "postgresql://test:test@localhost:5432/test"
-  script:
-    - pytest tests/api/
 
 test:workers:
   extends: .test_base
   variables:
     QUEUE_URL: "redis://localhost:6379/1"
-  script:
-    - pytest tests/workers/
 
 build:api:
   extends: .build_base

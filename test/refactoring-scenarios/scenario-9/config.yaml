@@ -3,25 +3,40 @@ description: "Cross-repository include optimization"
 
 expectations:
   should_succeed: true
-  expected_issue_reduction: 6   # Based on analysis - shows 7 before, should reduce significantly
-  max_allowed_new_issues: 1
+  expected_issues_resolved: 6   # Exact number expected
+  max_new_issues: 1
   semantic_equivalence: false   # Include restructuring changes semantics
   performance_improvement: true # Matrix consolidation improves performance
   minimum_jobs_analyzed: 17     # Should parse complex multi-stage pipeline
   expected_includes: 15         # Has many external includes to consolidate
   
-  expected_issue_types:
-    performance: 6        # Matrix opportunities, caching, artifacts
-    maintainability: 1    # Include consolidation
-    security: 0
-    reliability: 0
+  # Specific expected issues in BEFORE configuration
+  expected_before_issues:
+    - "Multiple similar jobs could use matrix"
+    - "Multiple local includes could be consolidated"
+    - "More than half of jobs don't use caching"
+    - "Duplicate configuration across includes"
+    - "External include redundancy"
   
-  expected_issue_patterns:
-    - "Multiple similar jobs.*could use matrix"
-    - "Multiple local includes.*could be consolidated"
-    - "More than half.*don't use caching"
+  # Specific expected improvements detected
+  expected_improvements:
+    - "Include consolidation and optimization"
+    - "Matrix strategy for similar jobs"
+    - "External include dependency reduction"
+    - "Cross-repository template sharing"
+    - "Cache configuration improvements"
   
-  required_improvements:
-    - "include"       # Main focus: include consolidation
-    - "matrix"        # Matrix opportunities exist
-    - "external"      # External include optimization
+  # Expected improvement tags
+  expected_improvement_tags:
+    - "external"
+    - "matrix"
+    - "templates"
+    - "extends"
+    - "variables"
+    - "consolidation"
+    - "parallel"
+    - "optimization"
+  
+  # Expected remaining issues in AFTER configuration
+  expected_remaining_issues:
+    - "Complex include dependency chain"

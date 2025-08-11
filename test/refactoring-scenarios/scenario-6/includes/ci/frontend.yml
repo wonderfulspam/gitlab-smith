@@ -50,11 +50,6 @@ security:frontend:
 
 package:frontend:
   extends: .service_package_template
-  script:
-    - docker build -f frontend/Dockerfile -t $DOCKER_REGISTRY/frontend:$CI_COMMIT_SHA frontend/
-    - docker push $DOCKER_REGISTRY/frontend:$CI_COMMIT_SHA
-  dependencies:
-    - build:frontend
-  rules:
-    - changes:
-        - frontend/**/*
+  variables:
+    SERVICE_NAME: "frontend"
+    SERVICE_DIR: "frontend"

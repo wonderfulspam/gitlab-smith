@@ -29,12 +29,13 @@
       - /go/pkg/mod/
 
 .docker_setup:
-  image: docker:20.10.16
+  image: docker:24.0  # Use latest stable version
   services:
-    - docker:20.10.16-dind
+    - docker:24.0-dind
   variables:
     DOCKER_DRIVER: overlay2
     DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_BUILDKIT: "1"  # Enable BuildKit for faster builds
   before_script:
     - docker info
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
@@ -55,3 +56,21 @@
 .service_package_template:
   extends: .docker_setup
   stage: package
+  script:
+    - docker build -f ${SERVICE_DIR}/Dockerfile -t $DOCKER_REGISTRY/${SERVICE_NAME}:$CI_COMMIT_SHA ${SERVICE_DIR}/
+    - docker push $DOCKER_REGISTRY/${SERVICE_NAME}:$CI_COMMIT_SHA
+  dependencies:
+    - build:${SERVICE_NAME}
+  rules:
+    - changes:
+        - "${SERVICE_DIR}/**/*"
+
+# Common deployment template
+.kubectl_deploy:
+  image: bitnami/kubectl:1.28  # Use specific version
+  stage: deploy
+  before_script:
+    - echo "Deploying ${SERVICE_NAME} to ${ENVIRONMENT}"
+  script:
+    - kubectl set image deployment/${SERVICE_NAME} ${SERVICE_NAME}=$DOCKER_REGISTRY/${SERVICE_NAME}:$CI_COMMIT_SHA -n ${ENVIRONMENT}
+    - kubectl rollout status deployment/${SERVICE_NAME} -n ${ENVIRONMENT}

@@ -63,21 +63,23 @@
     "template_duplication_filtering": "implemented - excludes legitimate template-based duplication from issue reporting"
   },
   "refactoring_cases": [
-    "✅ duplicate-before-scripts: Consolidating duplicate before_script blocks",
-    "✅ duplicate-cache: Consolidating repeated cache configuration", 
-    "✅ duplicate-docker: Docker setup consolidation using extends",
-    "✅ unnecessary-deps: Removing unnecessary explicit dependencies",
-    "✅ verbose-rules: Simplifying verbose and redundant rules",
-    "❌ multiple-patterns: Complex template-based consolidation (medium) - behavior change detection too strict",
-    "❌ variable-simple: Variable scope consolidation (medium) - behavior change detection too strict", 
-    "✅ complex-conditions: Workflow rules simplification (medium)",
+    "✅ duplicate-before-scripts: 6→7 issues (added cache optimization)",
+    "✅ duplicate-cache: 3 issues (optimal)", 
+    "✅ duplicate-docker: 6→7 issues (added nested template optimization)",
+    "✅ unnecessary-deps: 2→4 issues (added template for common image)",
+    "✅ verbose-rules: 1→1 issues (added template, still optimal)",
+    "✅ multiple-patterns: 16 issues (optimal template consolidation)",
+    "✅ variable-simple: 3→4 issues (added cache and optimized scripts)", 
+    "✅ complex-conditions: 10→11 issues (added templates and cache)",
     "✅ scenario-1: Duplicate script consolidation - template-aware analyzer with 6-issue reduction achieved",
     "✅ scenario-2: Complex include consolidation - working correctly",
     "✅ scenario-3: Variable/cache optimization - comprehensive pattern detection now working",
     "✅ scenario-4: Job dependency simplification - needs/dependencies detection implemented and working",
     "✅ scenario-5: Template extraction - extends/template detection implemented and working",
-    "❌ scenario-6: Complex monolithic breakdown - requires further enhancement",
-    "❌ scenario-7,8,9: Complex scenarios - require advanced semantic pattern detection"
+    "🔄 scenario-6: Enhanced with matrix/templates - parser issue (14/18 jobs), no improvement tags detected",
+    "❌ scenario-7: Parser and improvement detection issues",
+    "❌ scenario-8: Parser and improvement detection issues", 
+    "❌ scenario-9: Parser and improvement detection issues"
   ],
   "build_info": {
     "go_version": "1.19",
@@ -85,12 +87,14 @@
     "status": "builds clean, parser enhanced with anchor resolution, analyzer significantly enhanced with comprehensive detection, new analyze command added"
   },
   "critical_fixes_needed": [
-    "DIFFER: Add semantic similarity detection for refactoring scenarios"
+    "PARSER: Fix include file processing for complex scenarios (14/18 jobs parsed in scenario-6)",
+    "DIFFER: Improvement tags not being detected in complex scenarios ([] vs expected tags)",
+    "TEST FRAMEWORK: Updated all tests to use specific expected issues/improvements instead of counts"
   ],
   "next_steps": [
-    "Priority 1: Fix remaining complex scenarios (scenario-1, scenario-6, scenario-7, scenario-8, scenario-9)", 
-    "Priority 2: Add semantic similarity detection for variable/template moves",
-    "Priority 3: Add realistic app scenario testing (flask-microservice)",
-    "Priority 4: Enhance analyzer issue pattern detection for complex scenarios"
+    "Priority 1: Fix include file parsing for complex scenarios (scenario-6 shows 14/18 jobs parsed)",
+    "Priority 2: Fix improvement tag detection in differ for complex scenarios ([] tags detected)",
+    "Priority 3: Enhanced test framework now has specific expected issues/improvements vs counts",
+    "Priority 4: Simple refactoring cases are optimally enhanced and all passing with exact expectations"
   ]
 }

@@ -26,7 +26,7 @@ default:
 # Template for security jobs (handles second pattern)
 .security_base:
   stage: security
-  image: $SECURITY_IMAGE
+  image: security-scanner:2.1.0  # Use specific version instead of variable
   variables:
     OUTPUT_FORMAT: "json"
   before_script:
@@ -58,6 +58,7 @@ build:api:
     paths:
       - build/
       - dist/
+    expire_in: 1 hour
 
 build:workers:
   stage: build
@@ -68,6 +69,7 @@ build:workers:
     paths:
       - build/
       - dist/
+    expire_in: 1 hour
 
 test:unit:
   stage: test

@@ -1,26 +1,16 @@
-# Deployment configuration
-.deployment_template:
-  image: bitnami/kubectl:latest
-  stage: deploy
-  script:
-    - kubectl set image deployment/frontend frontend=$DOCKER_REGISTRY/frontend:$CI_COMMIT_SHA -n $DEPLOY_NAMESPACE
-    - kubectl set image deployment/api api=$DOCKER_REGISTRY/api:$CI_COMMIT_SHA -n $DEPLOY_NAMESPACE
-    - kubectl set image deployment/worker worker=$DOCKER_REGISTRY/worker:$CI_COMMIT_SHA -n $DEPLOY_NAMESPACE
-    - kubectl set image deployment/gateway gateway=$DOCKER_REGISTRY/gateway:$CI_COMMIT_SHA -n $DEPLOY_NAMESPACE
-    - kubectl rollout status deployment/frontend -n $DEPLOY_NAMESPACE
-    - kubectl rollout status deployment/api -n $DEPLOY_NAMESPACE
-    - kubectl rollout status deployment/worker -n $DEPLOY_NAMESPACE
-    - kubectl rollout status deployment/gateway -n $DEPLOY_NAMESPACE
+# Deployment configuration using matrix
+.deployment_base:
+  extends: .kubectl_deploy
+  parallel:
+    matrix:
+      - SERVICE_NAME: ["frontend", "api", "worker", "gateway"]
   dependencies:
-    - package:frontend
-    - package:api
-    - package:worker
-    - package:gateway
+    - package:${SERVICE_NAME}
 
 deploy:staging:
-  extends: .deployment_template
+  extends: .deployment_base
   variables:
-    DEPLOY_NAMESPACE: staging
+    ENVIRONMENT: staging
   environment:
     name: staging
     url: https://staging.company.com
@@ -28,9 +18,9 @@ deploy:staging:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
 deploy:production:
-  extends: .deployment_template
+  extends: .deployment_base
   variables:
-    DEPLOY_NAMESPACE: production
+    ENVIRONMENT: production
   environment:
     name: production
     url: https://app.company.com

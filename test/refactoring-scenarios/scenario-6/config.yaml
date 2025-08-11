@@ -3,24 +3,40 @@ description: "Monolithic include breakdown for microservices"
 
 expectations:
   should_succeed: true
-  expected_issue_reduction: 20  # Based on analysis
-  max_allowed_new_issues: 2
+  expected_issues_resolved: 20  # Exact number expected
+  max_new_issues: 2
   semantic_equivalence: false   # Major restructuring
   performance_improvement: true 
   minimum_jobs_analyzed: 18     # Should parse all microservice jobs
   
-  expected_issue_types:
-    maintainability: 15   # Monolithic structure, duplicated setup
-    performance: 4        # Cache and matrix opportunities
-    security: 3          # Image tags and variable issues
-    reliability: 0
+  # Specific expected issues in BEFORE configuration
+  expected_before_issues:
+    - "Duplicate Docker setup"
+    - "Duplicate Python setup" 
+    - "Duplicate Go setup"
+    - "Monolithic CI file"
+    - "Using 'latest' tag"
+    - "More than half of jobs don't use caching"
+    - "Similar before_script blocks"
+    - "Duplicate setup configuration"
   
-  expected_issue_patterns:
-    - "Duplicate.*blocks"
-    - "Multiple similar jobs.*could use matrix"
-    - "Using.*tag"
+  # Specific expected improvements detected
+  expected_improvements:
+    - "Include consolidation using local includes"
+    - "Template extraction for common setup patterns"
+    - "Service-specific CI organization"
+    - "Consolidated Docker configuration"
+    - "Matrix strategy for deployment"
   
-  required_improvements:
-    - "include"       # Include consolidation
-    - "templates"     # Template extraction
-    - "duplication"   # Duplicate removal
+  # Expected improvement tags
+  expected_improvement_tags:
+    - "include"
+    - "templates" 
+    - "duplication"
+    - "matrix"
+    - "consolidation"
+  
+  # Expected remaining issues in AFTER configuration  
+  expected_remaining_issues:
+    - "Using 'latest' tag"
+    - "Artifacts configured without expiration"

@@ -8,12 +8,17 @@ variables:
   APP_NAME: "myapp"
 
 .docker_base:
-  image: docker:20.10.16
+  image: docker:24.0
   services:
-    - docker:20.10.16-dind
+    - docker:24.0-dind
   variables:
     DOCKER_DRIVER: overlay2
     DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_BUILDKIT: "1"
+  cache:
+    key: "docker-$CI_COMMIT_REF_SLUG"
+    paths:
+      - /var/lib/docker/
   before_script:
     - docker info
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
@@ -25,17 +30,16 @@ build:image:
     - docker build -t $DOCKER_REGISTRY/$APP_NAME:$CI_COMMIT_SHA .
     - docker push $DOCKER_REGISTRY/$APP_NAME:$CI_COMMIT_SHA
 
-deploy:staging:
+.deploy_base:
   extends: .docker_base
   stage: deploy
   script:
     - docker pull $DOCKER_REGISTRY/$APP_NAME:$CI_COMMIT_SHA
     - docker run -d $DOCKER_REGISTRY/$APP_NAME:$CI_COMMIT_SHA
 
+deploy:staging:
+  extends: .deploy_base
+
 deploy:production:
-  extends: .docker_base
-  stage: deploy
-  script:
-    - docker pull $DOCKER_REGISTRY/$APP_NAME:$CI_COMMIT_SHA
-    - docker run -d $DOCKER_REGISTRY/$APP_NAME:$CI_COMMIT_SHA
+  extends: .deploy_base
   when: manual
