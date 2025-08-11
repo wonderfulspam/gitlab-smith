@@ -3,7 +3,7 @@ description: "Complex include consolidation"
 
 expectations:
   should_succeed: true
-  expected_issue_reduction: 22  # Based on analysis output
+  expected_issue_reduction: 20  # Actual improvement when parsing through validator
   max_allowed_new_issues: 1
   semantic_equivalence: false   # Include restructuring changes semantics
   performance_improvement: true

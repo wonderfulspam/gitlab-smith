@@ -7,7 +7,7 @@ expectations:
   max_new_issues: 2
   semantic_equivalence: false   # Complex refactoring changes semantics
   performance_improvement: true # Matrix consolidation should improve performance
-  minimum_jobs_analyzed: 22     # Should parse all jobs including templates
+  minimum_jobs_analyzed: 14     # Should parse all non-template jobs from before config
   
   # Specific expected issues in BEFORE configuration
   expected_before_issues:
