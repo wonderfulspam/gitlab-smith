@@ -98,7 +98,11 @@ gitlab-smith/
 │   │   │   └── structure_checks.go   # Configuration structure
 │   │   └── *_test.go         # Analyzer tests
 │   ├── differ/                 # Semantic diffing engine
-│   │   ├── differ.go          # Configuration comparison logic
+│   │   ├── differ.go          # Package entry point and documentation
+│   │   ├── types.go           # Diff types and result structures
+│   │   ├── comparison.go      # Core configuration comparison logic
+│   │   ├── improvements.go    # Refactoring improvement pattern detection
+│   │   ├── utils.go           # Helper functions and utilities
 │   │   └── *_test.go         # Differ tests
 │   ├── deployer/              # GitLab deployment management
 │   │   ├── deployer.go        # Docker-based GitLab deployment
