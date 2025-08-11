@@ -3,9 +3,11 @@ package parser
 // GitLabConfig represents a parsed GitLab CI configuration
 type GitLabConfig struct {
 	Stages    []string               `yaml:"stages" json:"stages,omitempty"`
+	Image     string                 `yaml:"image" json:"image,omitempty"`
 	Variables map[string]interface{} `yaml:"variables" json:"variables,omitempty"`
 	Include   []Include              `yaml:"include" json:"include,omitempty"`
 	Default   *JobConfig             `yaml:"default" json:"default,omitempty"`
+	Cache     *Cache                 `yaml:"cache" json:"cache,omitempty"`
 	Workflow  *Workflow              `yaml:"workflow" json:"workflow,omitempty"`
 	Jobs      map[string]*JobConfig  `json:"jobs,omitempty"`
 	RawData   map[string]interface{} `json:"-"`
@@ -48,11 +50,16 @@ type JobConfig struct {
 }
 
 type Cache struct {
-	Key       string   `yaml:"key,omitempty" json:"key,omitempty"`
-	Paths     []string `yaml:"paths,omitempty" json:"paths,omitempty"`
-	Policy    string   `yaml:"policy,omitempty" json:"policy,omitempty"`
-	Untracked bool     `yaml:"untracked,omitempty" json:"untracked,omitempty"`
-	When      string   `yaml:"when,omitempty" json:"when,omitempty"`
+	Key       interface{} `yaml:"key,omitempty" json:"key,omitempty"` // Can be string or CacheKey
+	Paths     []string    `yaml:"paths,omitempty" json:"paths,omitempty"`
+	Policy    string      `yaml:"policy,omitempty" json:"policy,omitempty"`
+	Untracked bool        `yaml:"untracked,omitempty" json:"untracked,omitempty"`
+	When      string      `yaml:"when,omitempty" json:"when,omitempty"`
+}
+
+type CacheKey struct {
+	Files  []string `yaml:"files,omitempty" json:"files,omitempty"`
+	Prefix string   `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 }
 
 type Artifacts struct {

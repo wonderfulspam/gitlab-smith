@@ -59,3 +59,43 @@ type ScenarioConfig struct {
 		ExpectedIncludes      int            `yaml:"expected_includes"`       // For include consolidation tests
 	} `yaml:"expectations"`
 }
+
+// GoldStandardCase represents a gold standard test case for analyzer validation
+type GoldStandardCase struct {
+	Name         string
+	Description  string
+	ConfigFile   string
+	Expectations GoldStandardExpectations
+}
+
+// GoldStandardExpectations defines what success looks like for a gold standard case
+type GoldStandardExpectations struct {
+	ShouldSucceed             bool               `yaml:"should_succeed"`
+	MaxAllowedIssues          int                `yaml:"max_allowed_issues"`
+	ExpectedZeroCategories    []string           `yaml:"expected_zero_categories"`
+	ExpectedMinimalCategories map[string]int     `yaml:"expected_minimal_categories"`
+	AcceptableMinorIssues     []string           `yaml:"acceptable_minor_issues"`
+	ExpectedJobs              ExpectedJobMetrics `yaml:"expected_jobs"`
+	GoldStandardFeatures      []string           `yaml:"gold_standard_features"`
+}
+
+// ExpectedJobMetrics defines expected characteristics of the pipeline jobs
+type ExpectedJobMetrics struct {
+	Total               int  `yaml:"total"`
+	Stages              int  `yaml:"stages"`
+	ParallelCapable     bool `yaml:"parallel_capable"`
+	HasDependencies     bool `yaml:"has_dependencies"`
+	HasArtifacts        bool `yaml:"has_artifacts"`
+	HasCaching          bool `yaml:"has_caching"`
+	HasCoverage         bool `yaml:"has_coverage"`
+	HasSecurityScanning bool `yaml:"has_security_scanning"`
+}
+
+// GoldStandardConfig represents gold standard case configuration that can be loaded from YAML
+type GoldStandardConfig struct {
+	Name                 string                   `yaml:"name"`
+	Description          string                   `yaml:"description"`
+	Type                 string                   `yaml:"type"`
+	Expectations         GoldStandardExpectations `yaml:"expectations"`
+	GoldStandardFeatures []string                 `yaml:"gold_standard_features"`
+}

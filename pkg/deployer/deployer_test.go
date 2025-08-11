@@ -123,15 +123,15 @@ func TestCheckDockerAvailability(t *testing.T) {
 
 func TestCreateDataDirectories(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	config := &DeploymentConfig{
 		DataVolumePath:   tmpDir + "/data",
-		ConfigVolumePath: tmpDir + "/config", 
+		ConfigVolumePath: tmpDir + "/config",
 		LogsVolumePath:   tmpDir + "/logs",
 	}
 
 	deployer := New(config)
-	
+
 	err := deployer.createDataDirectories()
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -152,7 +152,7 @@ func TestCreateDataDirectoriesError(t *testing.T) {
 	}
 
 	deployer := New(config)
-	
+
 	err := deployer.createDataDirectories()
 	if err == nil {
 		t.Error("Expected error when creating directory in readonly location")
@@ -161,7 +161,7 @@ func TestCreateDataDirectoriesError(t *testing.T) {
 
 func TestCleanup(t *testing.T) {
 	deployer := New(nil)
-	
+
 	err := deployer.cleanup()
 	if err != nil {
 		t.Errorf("Cleanup should not return error even if container doesn't exist, got: %v", err)
@@ -171,7 +171,7 @@ func TestCleanup(t *testing.T) {
 func TestGetLogsToBuffer(t *testing.T) {
 	deployer := New(nil)
 	var buf bytes.Buffer
-	
+
 	err := deployer.GetLogs(&buf, false)
 	if err == nil {
 		t.Error("Expected error when getting logs from non-existent container")
@@ -184,22 +184,22 @@ func TestGetStatusNonExistentContainer(t *testing.T) {
 		ExternalHostname: "localhost",
 		HTTPPort:         "8080",
 	}
-	
+
 	deployer := New(config)
-	
+
 	status, err := deployer.GetStatus()
 	if err != nil {
 		t.Fatalf("GetStatus should not return error, got: %v", err)
 	}
-	
+
 	if status.IsRunning {
 		t.Error("Expected IsRunning to be false for non-existent container")
 	}
-	
+
 	if status.ContainerName != config.ContainerName {
 		t.Errorf("Expected ContainerName %s, got %s", config.ContainerName, status.ContainerName)
 	}
-	
+
 	expectedURL := "http://localhost:8080"
 	if status.URL != expectedURL {
 		t.Errorf("Expected URL %s, got %s", expectedURL, status.URL)

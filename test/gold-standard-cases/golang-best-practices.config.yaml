@@ -1,0 +1,43 @@
+name: "golang-best-practices"
+description: "Gold standard GitLab CI template for Go projects with best practices"
+type: "gold_standard"
+
+expectations:
+  should_succeed: true
+  max_allowed_issues: 3        # Allow minimal issues for very strict analysis
+  expected_zero_categories:    # These categories should have zero issues
+    - security                 # No security issues expected
+    - reliability             # Should be reliable
+  expected_minimal_categories: # These may have minor issues
+    performance: 2          # Might suggest minor optimizations
+    maintainability: 1      # Very minimal maintainability suggestions
+
+# Characteristics that make this a gold standard
+gold_standard_features:
+  - "Specific Go version pinning (1.21-alpine)"
+  - "Proper cache strategy with go.mod/go.sum keys"  
+  - "Environment-specific variables (CGO_ENABLED, GOOS, GOARCH)"
+  - "Comprehensive testing with race detection and coverage"
+  - "Security scanning with gosec and dependency scanning"
+  - "Code quality checks (format, vet, lint)"
+  - "Efficient artifact management with expiration"
+  - "Smart rules for MR vs main branch execution"
+  - "Performance benchmarking on main branch only"
+  - "Structured stages: prepare → quality → test → build → security"
+
+# Potential minor issues the analyzer might flag
+acceptable_minor_issues:
+  - "Could suggest specific golangci-lint version pinning"
+  - "Might recommend splitting test job for better parallelism"
+  - "Could suggest adding timeout to jobs"
+
+# Expected job analysis
+expected_jobs:
+  total: 8
+  stages: 5
+  parallel_capable: true
+  has_dependencies: true
+  has_artifacts: true
+  has_caching: true
+  has_coverage: true
+  has_security_scanning: true

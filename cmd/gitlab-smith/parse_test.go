@@ -58,7 +58,7 @@ test:
 			expectError: false,
 			checkOutput: func(t *testing.T, output string) {
 				t.Logf("Parse output: %s", output)
-				
+
 				// Verify JSON output
 				var result map[string]interface{}
 				err := json.Unmarshal([]byte(output), &result)
@@ -112,7 +112,7 @@ test:
 				Use:   "parse <file>",
 				Short: "Parse and display a GitLab CI configuration file",
 				Args:  cobra.ExactArgs(1),
-				RunE: parseCmd.RunE,
+				RunE:  parseCmd.RunE,
 			}
 
 			var buf bytes.Buffer

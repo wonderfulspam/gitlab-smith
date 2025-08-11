@@ -30,13 +30,35 @@ func CheckCacheUsage(config *parser.GitLabConfig) []types.Issue {
 	totalJobs := len(config.Jobs)
 
 	for jobName, job := range config.Jobs {
-		if job.Cache == nil && (config.Default == nil || config.Default.Cache == nil) {
+		// A job has caching if:
+		// 1. It has its own cache configuration, OR
+		// 2. There's a global cache configuration, OR
+		// 3. There's a default cache configuration
+		hasCache := job.Cache != nil ||
+			config.Cache != nil ||
+			(config.Default != nil && config.Default.Cache != nil)
+
+		if !hasCache {
 			jobsWithoutCache++
 		}
 
 		// Check for inefficient cache configuration
 		if job.Cache != nil {
-			if job.Cache.Key == "" {
+			// Check if cache key is missing or empty
+			hasKey := false
+			if job.Cache.Key != nil {
+				switch key := job.Cache.Key.(type) {
+				case string:
+					hasKey = key != ""
+				case map[string]interface{}:
+					// Complex key with files or prefix
+					hasKey = true
+				default:
+					hasKey = false
+				}
+			}
+
+			if !hasKey {
 				issues = append(issues, types.Issue{
 					Type:       types.IssueTypePerformance,
 					Severity:   types.SeverityMedium,

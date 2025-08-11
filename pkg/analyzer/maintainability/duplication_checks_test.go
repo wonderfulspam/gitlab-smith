@@ -157,7 +157,7 @@ func TestCheckDuplicatedCacheConfig(t *testing.T) {
 					Script: []string{"echo build"},
 				},
 				"test": {
-					Stage:  "test", 
+					Stage:  "test",
 					Script: []string{"echo test"},
 				},
 			},

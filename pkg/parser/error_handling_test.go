@@ -194,7 +194,7 @@ build:
 			t.Errorf("Expected 1 template include, got %d", templateCount)
 		}
 		// Project includes might not be parsed correctly in all implementations
-		t.Logf("Parsed include counts: local=%d, remote=%d, template=%d, project=%d", 
+		t.Logf("Parsed include counts: local=%d, remote=%d, template=%d, project=%d",
 			localCount, remoteCount, templateCount, projectCount)
 	})
 

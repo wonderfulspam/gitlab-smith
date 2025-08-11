@@ -46,6 +46,16 @@ func Parse(data []byte) (*GitLabConfig, error) {
 			if vars, ok := value.(map[string]interface{}); ok {
 				config.Variables = vars
 			}
+		case "image":
+			if img, ok := value.(string); ok {
+				config.Image = img
+			}
+		case "cache":
+			cacheBytes, _ := yaml.Marshal(value)
+			var cache Cache
+			if err := yaml.Unmarshal(cacheBytes, &cache); err == nil {
+				config.Cache = &cache
+			}
 		case "include":
 			parseInclude(value, config)
 		case "default":
