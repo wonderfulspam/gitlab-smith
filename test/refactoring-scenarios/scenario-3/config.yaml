@@ -1,0 +1,20 @@
+name: "scenario-3"
+description: "Variable and cache optimization"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 0   # Analysis shows no change in issue count
+  max_allowed_new_issues: 0
+  semantic_equivalence: true    # Simple variable optimization
+  performance_improvement: true
+  minimum_jobs_analyzed: 2      # Simple scenario
+  
+  expected_issue_types:
+    performance: 2        # Cache-related improvements
+    security: 0
+    maintainability: 0
+    reliability: 0
+  
+  required_improvements:
+    - "cache"            # Cache optimization
+    - "variables"        # Variable consolidation

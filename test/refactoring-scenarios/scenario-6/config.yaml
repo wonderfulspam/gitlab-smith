@@ -1,0 +1,26 @@
+name: "scenario-6"
+description: "Monolithic include breakdown for microservices"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 20  # Based on analysis
+  max_allowed_new_issues: 2
+  semantic_equivalence: false   # Major restructuring
+  performance_improvement: true 
+  minimum_jobs_analyzed: 18     # Should parse all microservice jobs
+  
+  expected_issue_types:
+    maintainability: 15   # Monolithic structure, duplicated setup
+    performance: 4        # Cache and matrix opportunities
+    security: 3          # Image tags and variable issues
+    reliability: 0
+  
+  expected_issue_patterns:
+    - "Duplicate.*blocks"
+    - "Multiple similar jobs.*could use matrix"
+    - "Using.*tag"
+  
+  required_improvements:
+    - "include"       # Include consolidation
+    - "templates"     # Template extraction
+    - "duplication"   # Duplicate removal

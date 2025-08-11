@@ -1,0 +1,48 @@
+# Worker service CI configuration
+build:worker:
+  extends:
+    - .python_setup
+    - .service_build_template
+  script:
+    - cd worker/
+    - python -m pytest tests/ --cov=worker --cov-report=xml
+    - python -m pylint worker/
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: worker/coverage.xml
+  rules:
+    - changes:
+        - worker/**/*
+        - worker-requirements.txt
+
+test:worker:integration:
+  extends:
+    - .python_setup
+    - .service_test_template
+  services:
+    - redis:6
+    - rabbitmq:3-management
+  variables:
+    REDIS_URL: "redis://redis:6379"
+    CELERY_BROKER_URL: "amqp://guest:guest@rabbitmq:5672/"
+  script:
+    - cd worker/
+    - python -m pytest tests/integration/ -v
+  rules:
+    - changes:
+        - worker/**/*
+  dependencies:
+    - build:worker
+
+package:worker:
+  extends: .service_package_template
+  script:
+    - docker build -f worker/Dockerfile -t $DOCKER_REGISTRY/worker:$CI_COMMIT_SHA worker/
+    - docker push $DOCKER_REGISTRY/worker:$CI_COMMIT_SHA
+  dependencies:
+    - build:worker
+  rules:
+    - changes:
+        - worker/**/*

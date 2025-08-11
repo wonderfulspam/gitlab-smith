@@ -1,0 +1,52 @@
+# Security scanning jobs
+variables:
+  SECURITY_SCAN_IMAGE: "registry.company.com/security-scanner:latest"
+
+.security_base:
+  image: $SECURITY_SCAN_IMAGE
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+security:sast:
+  extends: .security_base
+  stage: security
+  script:
+    - echo "Running SAST scan..."
+    - sast-scanner --input . --output sast-results.json
+    - echo "SAST scan completed"
+  artifacts:
+    reports:
+      sast: sast-results.json
+    paths:
+      - sast-results.json
+
+security:dependency:
+  extends: .security_base
+  stage: security
+  script:
+    - echo "Running dependency vulnerability scan..."
+    - dependency-scanner --package-file package.json --output dependency-results.json
+    - dependency-scanner --package-file requirements.txt --output python-dependency-results.json
+    - echo "Dependency scan completed"
+  artifacts:
+    reports:
+      dependency_scanning: dependency-results.json
+    paths:
+      - dependency-results.json
+      - python-dependency-results.json
+
+security:container:
+  extends: .security_base
+  stage: security
+  services:
+    - docker:20.10.16-dind
+  script:
+    - echo "Running container security scan..."
+    - container-scanner --image app:$CI_COMMIT_SHA --output container-results.json
+    - echo "Container scan completed"
+  artifacts:
+    reports:
+      container_scanning: container-results.json
+    paths:
+      - container-results.json

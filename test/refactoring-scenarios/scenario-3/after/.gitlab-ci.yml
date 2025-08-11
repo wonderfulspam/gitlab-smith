@@ -1,0 +1,27 @@
+# Simple optimized scenario-3 after
+stages:
+  - build
+  - test
+
+variables:
+  NODE_VERSION: "16"
+
+.node_setup:
+  image: node:16
+  before_script:
+    - npm ci
+
+build:
+  extends: .node_setup
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+test:
+  extends: .node_setup
+  stage: test
+  script:
+    - npm test

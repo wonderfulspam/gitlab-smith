@@ -1,0 +1,50 @@
+# AFTER: Consolidated variables using defaults and global scope
+stages:
+  - test
+  - build
+
+# Global variables for repeated values
+variables:
+  API_URL: "https://api.company.com"
+
+# Default configuration
+default:
+  image: python:3.11
+
+# Template for test jobs
+.test_base:
+  stage: test
+  variables:
+    PYTHON_ENV: "test"
+
+# Template for build jobs
+.build_base:
+  stage: build
+  variables:
+    PYTHON_ENV: "production"
+  script:
+    - python setup.py build
+
+test:api:
+  extends: .test_base
+  variables:
+    DATABASE_URL: "postgresql://test:test@localhost:5432/test"
+  script:
+    - pytest tests/api/
+
+test:workers:
+  extends: .test_base
+  variables:
+    QUEUE_URL: "redis://localhost:6379/1"
+  script:
+    - pytest tests/workers/
+
+build:api:
+  extends: .build_base
+  variables:
+    BUILD_TARGET: "api"
+
+build:workers:
+  extends: .build_base  
+  variables:
+    BUILD_TARGET: "workers"

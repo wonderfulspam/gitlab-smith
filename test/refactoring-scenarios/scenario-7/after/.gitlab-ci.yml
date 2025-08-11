@@ -1,0 +1,108 @@
+# AFTER: Scenario 7 - Optimized Multi-Environment CI with Matrix Strategy
+# Consolidated using parallel:matrix and includes for better maintainability
+
+include:
+  - local: 'ci/environment-configs.yml'
+
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: "registry.company.com"
+
+# Consolidated build job using matrix strategy
+build:
+  stage: build
+  image: node:16
+  script:
+    - npm ci
+    - npm run build
+    - npm run test
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 day
+  parallel:
+    matrix:
+      - ENVIRONMENT: dev
+        NODE_ENV: "development"
+        API_URL: "https://api-dev.company.com"
+        DATABASE_URL: "postgresql://dev_user:dev_pass@dev-db:5432/devdb"
+        BRANCH_RULE: '$CI_COMMIT_BRANCH == "develop"'
+      - ENVIRONMENT: staging
+        NODE_ENV: "staging"
+        API_URL: "https://api-staging.company.com"
+        DATABASE_URL: "postgresql://staging_user:staging_pass@staging-db:5432/stagingdb"
+        BRANCH_RULE: '$CI_COMMIT_BRANCH == "main"'
+      - ENVIRONMENT: prod
+        NODE_ENV: "production"
+        API_URL: "https://api.company.com"
+        DATABASE_URL: "postgresql://prod_user:prod_pass@prod-db:5432/proddb"
+        BRANCH_RULE: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop" && $ENVIRONMENT == "dev"'
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop" && $ENVIRONMENT == "dev"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $ENVIRONMENT == "staging"'
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $ENVIRONMENT == "staging"'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/ && $ENVIRONMENT == "prod"'
+
+# Consolidated test matrix
+test:matrix:
+  stage: test
+  script:
+    - npm ci
+    - npm run test:unit
+    - npm run test:integration
+  parallel:
+    matrix:
+      - NODE_VERSION: ["14", "16", "18"]
+        ENVIRONMENT: ["dev", "staging"]
+        NODE_ENV: ["development", "staging"]
+      - NODE_VERSION: ["16", "18"]
+        ENVIRONMENT: ["prod"]
+        NODE_ENV: ["production"]
+  image: node:${NODE_VERSION}
+  variables:
+    NODE_ENV: ${NODE_ENV}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop" && $ENVIRONMENT == "dev"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $ENVIRONMENT == "staging"'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/ && $ENVIRONMENT == "prod"'
+
+# Consolidated deployment job
+deploy:
+  stage: deploy
+  extends: .deployment_template
+  parallel:
+    matrix:
+      - ENVIRONMENT: dev
+        NAMESPACE: development
+        REPLICA_COUNT: 1
+        RESOURCE_LIMIT_CPU: "500m"
+        RESOURCE_LIMIT_MEMORY: "512Mi"
+        URL: "https://dev.company.com"
+        BRANCH_RULE: '$CI_COMMIT_BRANCH == "develop"'
+      - ENVIRONMENT: staging
+        NAMESPACE: staging
+        REPLICA_COUNT: 2
+        RESOURCE_LIMIT_CPU: "1000m"
+        RESOURCE_LIMIT_MEMORY: "1024Mi"
+        URL: "https://staging.company.com"
+        BRANCH_RULE: '$CI_COMMIT_BRANCH == "main"'
+      - ENVIRONMENT: prod
+        NAMESPACE: production
+        REPLICA_COUNT: 5
+        RESOURCE_LIMIT_CPU: "2000m"
+        RESOURCE_LIMIT_MEMORY: "2048Mi"
+        URL: "https://company.com"
+        BRANCH_RULE: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+        MANUAL: true
+  dependencies:
+    - build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop" && $ENVIRONMENT == "dev"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $ENVIRONMENT == "staging"'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/ && $ENVIRONMENT == "prod"'
+      when: manual

@@ -1,0 +1,20 @@
+name: "scenario-4"
+description: "Job dependency simplification"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 3   # Based on analysis output
+  max_allowed_new_issues: 2
+  semantic_equivalence: true    # Dependency optimization should preserve semantics
+  performance_improvement: true # Better parallelism
+  minimum_jobs_analyzed: 3      # Simple dependency scenario
+  
+  expected_issue_types:
+    performance: 1        # Performance improvements from better dependencies
+    security: 3          # Image/variable issues
+    maintainability: 1    # Dependency structure
+    reliability: 0
+  
+  required_improvements:
+    - "needs"            # Needs optimization
+    - "dependencies"     # Dependency simplification

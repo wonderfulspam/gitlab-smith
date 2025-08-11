@@ -1,0 +1,20 @@
+name: "scenario-5"
+description: "Template extraction and reuse"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 1   # Based on analysis output
+  max_allowed_new_issues: 0
+  semantic_equivalence: true    # Template extraction should preserve behavior
+  performance_improvement: false
+  minimum_jobs_analyzed: 3      # Template scenario
+  
+  expected_issue_types:
+    performance: 1        # Minor performance improvements
+    security: 0
+    maintainability: 1    # Template structure improvements
+    reliability: 0
+  
+  required_improvements:
+    - "template"         # Template extraction
+    - "extends"          # Template reuse

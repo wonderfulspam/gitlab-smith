@@ -1,0 +1,32 @@
+# AFTER: Duplicate before_script consolidated using default
+stages:
+  - build
+  - test
+
+default:
+  image: node:16
+  before_script:
+    - npm cache clean --force
+    - npm ci --cache .npm --prefer-offline
+    - node --version
+
+build:frontend:
+  stage: build
+  script:
+    - npm run build:frontend
+  artifacts:
+    paths:
+      - dist/frontend/
+
+build:backend:
+  stage: build
+  script:
+    - npm run build:backend
+  artifacts:
+    paths:
+      - dist/backend/
+
+test:unit:
+  stage: test
+  script:
+    - npm test

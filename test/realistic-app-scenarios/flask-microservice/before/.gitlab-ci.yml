@@ -1,0 +1,314 @@
+# BEFORE: Complex Flask Microservice CI Pipeline
+# This represents a realistic microservice with complete file structure
+# Contains many refactoring opportunities across multiple concerns
+
+stages:
+  - lint
+  - test
+  - security
+  - build
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: "registry.company.com"
+  PYTHON_VERSION: "3.11"
+  POSTGRES_VERSION: "14"
+  REDIS_VERSION: "7"
+
+# Repetitive Python setup across jobs
+lint:black:
+  stage: lint
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install black isort flake8 mypy
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  script:
+    - black --check --diff app/
+    - echo "Black formatting check completed"
+
+lint:isort:
+  stage: lint
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install black isort flake8 mypy
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  script:
+    - isort --check-only --diff app/
+    - echo "Import sorting check completed"
+
+lint:flake8:
+  stage: lint
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install black isort flake8 mypy
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  script:
+    - flake8 app/ tests/
+    - echo "Flake8 linting completed"
+
+lint:mypy:
+  stage: lint
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install black isort flake8 mypy
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  script:
+    - mypy app/
+    - echo "Type checking completed"
+
+# Repetitive test setup
+test:unit:
+  stage: test
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git postgresql-client
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - pip install pytest pytest-cov pytest-mock
+  script:
+    - python -m pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=html
+    - echo "Unit tests completed"
+  coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - htmlcov/
+
+test:integration:
+  stage: test
+  image: python:3.11-slim
+  services:
+    - postgres:14
+    - redis:7
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser
+    POSTGRES_PASSWORD: testpass
+    DATABASE_URL: "postgresql://testuser:testpass@postgres:5432/testdb"
+    REDIS_URL: "redis://redis:6379/0"
+    FLASK_ENV: "testing"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git postgresql-client
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - pip install pytest pytest-cov pytest-mock
+    - echo "Waiting for database to be ready..."
+    - sleep 10
+    - psql $DATABASE_URL -c "SELECT version();"
+    - python -c "import redis; r = redis.Redis.from_url('redis://redis:6379/0'); r.ping()"
+  script:
+    - python -m pytest tests/integration/ -v
+    - echo "Integration tests completed"
+  artifacts:
+    when: always
+    reports:
+      junit: junit.xml
+
+test:e2e:
+  stage: test
+  image: python:3.11-slim
+  services:
+    - postgres:14
+    - redis:7
+    - selenium/standalone-chrome:latest
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser
+    POSTGRES_PASSWORD: testpass
+    DATABASE_URL: "postgresql://testuser:testpass@postgres:5432/testdb"
+    REDIS_URL: "redis://redis:6379/0"
+    FLASK_ENV: "testing"
+    SELENIUM_URL: "http://selenium:4444/wd/hub"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git postgresql-client curl
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - pip install pytest pytest-cov pytest-mock selenium
+    - echo "Waiting for services to be ready..."
+    - sleep 15
+    - psql $DATABASE_URL -c "SELECT version();"
+    - curl -sSf http://selenium:4444/status
+  script:
+    - python -m pytest tests/e2e/ -v
+    - echo "End-to-end tests completed"
+  artifacts:
+    when: always
+    paths:
+      - screenshots/
+
+# Security scans with repetitive setup
+security:bandit:
+  stage: security
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install bandit[toml] safety pip-audit
+  script:
+    - bandit -r app/ -f json -o bandit-report.json
+    - bandit -r app/
+    - echo "Security analysis completed"
+  artifacts:
+    reports:
+      sast: bandit-report.json
+    when: always
+
+security:safety:
+  stage: security
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install bandit[toml] safety pip-audit
+    - pip install -r requirements.txt
+  script:
+    - safety check --json --output safety-report.json
+    - safety check
+    - echo "Dependency vulnerability scan completed"
+  artifacts:
+    reports:
+      dependency_scanning: safety-report.json
+    when: always
+
+security:pip-audit:
+  stage: security
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install bandit[toml] safety pip-audit
+    - pip install -r requirements.txt
+  script:
+    - pip-audit --format=json --output=pip-audit-report.json
+    - pip-audit
+    - echo "Pip audit completed"
+  artifacts:
+    reports:
+      dependency_scanning: pip-audit-report.json
+    when: always
+
+# Build jobs with Docker setup duplication
+build:app:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker info
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
+  script:
+    - docker build -f Dockerfile -t $DOCKER_REGISTRY/flask-microservice:$CI_COMMIT_SHA .
+    - docker build -f Dockerfile -t $DOCKER_REGISTRY/flask-microservice:latest .
+    - docker push $DOCKER_REGISTRY/flask-microservice:$CI_COMMIT_SHA
+    - docker push $DOCKER_REGISTRY/flask-microservice:latest
+    - echo "Application Docker build completed"
+  dependencies:
+    - test:unit
+    - test:integration
+
+build:migrations:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker info
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
+  script:
+    - docker build -f Dockerfile.migrations -t $DOCKER_REGISTRY/flask-microservice-migrations:$CI_COMMIT_SHA .
+    - docker build -f Dockerfile.migrations -t $DOCKER_REGISTRY/flask-microservice-migrations:latest .
+    - docker push $DOCKER_REGISTRY/flask-microservice-migrations:$CI_COMMIT_SHA
+    - docker push $DOCKER_REGISTRY/flask-microservice-migrations:latest
+    - echo "Migrations Docker build completed"
+
+# Deployment with repetitive Kubernetes setup
+deploy:staging:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  variables:
+    ENVIRONMENT: "staging"
+    NAMESPACE: "microservices-staging"
+    REPLICAS: "2"
+    RESOURCE_LIMIT_CPU: "500m"
+    RESOURCE_LIMIT_MEMORY: "512Mi"
+    RESOURCE_REQUEST_CPU: "250m"
+    RESOURCE_REQUEST_MEMORY: "256Mi"
+  before_script:
+    - echo "Deploying to staging environment"
+    - kubectl version --client
+    - kubectl config use-context staging
+  script:
+    - echo "Running database migrations..."
+    - kubectl run migration-job-$CI_COMMIT_SHORT_SHA --image=$DOCKER_REGISTRY/flask-microservice-migrations:$CI_COMMIT_SHA --restart=Never -n $NAMESPACE
+    - kubectl wait --for=condition=complete job/migration-job-$CI_COMMIT_SHORT_SHA -n $NAMESPACE --timeout=300s
+    - echo "Updating application deployment..."
+    - kubectl set image deployment/flask-microservice flask-microservice=$DOCKER_REGISTRY/flask-microservice:$CI_COMMIT_SHA -n $NAMESPACE
+    - kubectl patch deployment flask-microservice -p '{"spec":{"replicas":'$REPLICAS'}}' -n $NAMESPACE
+    - kubectl rollout status deployment/flask-microservice -n $NAMESPACE --timeout=300s
+    - echo "Staging deployment completed"
+  environment:
+    name: staging
+    url: https://api-staging.company.com
+  dependencies:
+    - build:app
+    - build:migrations
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+deploy:production:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  variables:
+    ENVIRONMENT: "production"
+    NAMESPACE: "microservices-prod"
+    REPLICAS: "5"
+    RESOURCE_LIMIT_CPU: "1000m"
+    RESOURCE_LIMIT_MEMORY: "1024Mi"
+    RESOURCE_REQUEST_CPU: "500m"
+    RESOURCE_REQUEST_MEMORY: "512Mi"
+  before_script:
+    - echo "Deploying to production environment"
+    - kubectl version --client
+    - kubectl config use-context production
+  script:
+    - echo "Running database migrations..."
+    - kubectl run migration-job-$CI_COMMIT_SHORT_SHA --image=$DOCKER_REGISTRY/flask-microservice-migrations:$CI_COMMIT_SHA --restart=Never -n $NAMESPACE
+    - kubectl wait --for=condition=complete job/migration-job-$CI_COMMIT_SHORT_SHA --timeout=300s -n $NAMESPACE
+    - echo "Updating application deployment..."
+    - kubectl set image deployment/flask-microservice flask-microservice=$DOCKER_REGISTRY/flask-microservice:$CI_COMMIT_SHA -n $NAMESPACE
+    - kubectl patch deployment flask-microservice -p '{"spec":{"replicas":'$REPLICAS'}}' -n $NAMESPACE
+    - kubectl rollout status deployment/flask-microservice -n $NAMESPACE --timeout=600s
+    - echo "Production deployment completed"
+  environment:
+    name: production
+    url: https://api.company.com
+  dependencies:
+    - build:app
+    - build:migrations
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: manual

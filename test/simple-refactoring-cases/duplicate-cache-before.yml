@@ -1,0 +1,43 @@
+# BEFORE: Repeated cache configuration across Node.js jobs
+stages:
+  - build
+  - test
+
+variables:
+  NODE_VERSION: "16"
+
+build:
+  stage: build
+  image: node:$NODE_VERSION
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - node_modules/
+      - .npm/
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+
+test:unit:
+  stage: test  
+  image: node:$NODE_VERSION
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - node_modules/
+      - .npm/
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm test
+
+test:lint:
+  stage: test
+  image: node:$NODE_VERSION
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - node_modules/
+      - .npm/
+  script:
+    - npm ci --cache .npm --prefer-offline  
+    - npm run lint

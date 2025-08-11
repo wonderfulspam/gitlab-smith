@@ -1,0 +1,33 @@
+# Optimized scenario-5 after
+stages:
+  - lint
+  - test
+
+variables:
+  PYTHON_VERSION: "3.9"
+
+.python_setup:
+  image: python:3.9
+  before_script:
+    - pip install --upgrade pip
+
+lint:
+  extends: .python_setup
+  stage: lint
+  parallel:
+    matrix:
+      - TOOL: flake8
+      - TOOL: black
+  before_script:
+    - pip install --upgrade pip
+    - pip install $TOOL
+  script:
+    - if [ "$TOOL" = "flake8" ]; then flake8 .; fi
+    - if [ "$TOOL" = "black" ]; then black --check .; fi
+
+test:unit:
+  extends: .python_setup
+  stage: test
+  script:
+    - pip install -r requirements.txt
+    - python -m pytest tests/

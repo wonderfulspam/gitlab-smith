@@ -1,0 +1,159 @@
+# BEFORE: Multiple duplication patterns in one file
+stages:
+  - build
+  - test
+  - security
+  - package
+  - deploy
+
+variables:
+  PYTHON_VERSION: "3.11"
+  SECURITY_IMAGE: "security-scanner:latest"
+
+# Duplicate Python setup pattern across multiple jobs
+build:api:
+  stage: build
+  image: python:$PYTHON_VERSION
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  cache:
+    key: "api-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .pip-cache/
+      - __pycache__/
+  script:
+    - python -m compileall src/
+    - python setup.py build
+  artifacts:
+    paths:
+      - build/
+      - dist/
+
+build:workers:
+  stage: build
+  image: python:$PYTHON_VERSION
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  cache:
+    key: "workers-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .pip-cache/
+      - __pycache__/
+  script:
+    - python -m compileall workers/
+    - python setup.py build
+  artifacts:
+    paths:
+      - build/
+      - dist/
+
+# Duplicate test setup
+test:unit:
+  stage: test
+  image: python:$PYTHON_VERSION
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  cache:
+    key: "test-unit-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .pip-cache/
+      - __pycache__/
+  script:
+    - pytest tests/unit/ -v
+
+test:integration:
+  stage: test
+  image: python:$PYTHON_VERSION
+  services:
+    - postgres:15
+    - redis:7
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  cache:
+    key: "test-integration-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .pip-cache/
+      - __pycache__/
+  script:
+    - pytest tests/integration/ -v
+
+# Duplicate security scanning pattern
+security:sast:
+  stage: security
+  image: $SECURITY_IMAGE
+  variables:
+    SCAN_TYPE: "sast"
+    OUTPUT_FORMAT: "json"
+  before_script:
+    - echo "Initializing security scanner..."
+    - security-tool --version
+  script:
+    - security-tool scan --type $SCAN_TYPE --format $OUTPUT_FORMAT --output sast-results.json
+  artifacts:
+    reports:
+      sast: sast-results.json
+
+security:dependency:
+  stage: security
+  image: $SECURITY_IMAGE
+  variables:
+    SCAN_TYPE: "dependency"
+    OUTPUT_FORMAT: "json"
+  before_script:
+    - echo "Initializing security scanner..."
+    - security-tool --version
+  script:
+    - security-tool scan --type $SCAN_TYPE --format $OUTPUT_FORMAT --output dependency-results.json
+  artifacts:
+    reports:
+      dependency_scanning: dependency-results.json
+
+# Duplicate Docker build setup
+package:api:
+  stage: package
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker info
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+  script:
+    - docker buildx build --platform linux/amd64,linux/arm64 -t $CI_REGISTRY_IMAGE/api:$CI_COMMIT_SHA --push .
+  dependencies:
+    - build:api
+
+package:workers:
+  stage: package
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker info
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+  script:
+    - docker buildx build --platform linux/amd64,linux/arm64 -t $CI_REGISTRY_IMAGE/workers:$CI_COMMIT_SHA --push -f Dockerfile.workers .
+  dependencies:
+    - build:workers
+
+# Simple deploy job
+deploy:staging:
+  stage: deploy
+  image: alpine:3.19
+  script:
+    - echo "Deploying to staging"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

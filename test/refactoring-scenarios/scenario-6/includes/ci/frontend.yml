@@ -1,0 +1,60 @@
+# Frontend service CI configuration
+build:frontend:
+  extends: 
+    - .node_setup
+    - .service_build_template
+  script:
+    - cd frontend/
+    - npm run build
+    - npm run test:unit
+  artifacts:
+    paths:
+      - frontend/dist/
+  rules:
+    - changes:
+        - frontend/**/*
+        - package.json
+        - package-lock.json
+
+test:frontend:e2e:
+  extends:
+    - .node_setup
+    - .service_test_template
+  services:
+    - selenium/standalone-chrome:latest
+  script:
+    - cd frontend/
+    - npm run test:e2e
+  artifacts:
+    reports:
+      junit: frontend/test-results.xml
+    paths:
+      - frontend/screenshots/
+  rules:
+    - changes:
+        - frontend/**/*
+  dependencies:
+    - build:frontend
+
+security:frontend:
+  extends:
+    - .node_setup
+    - .service_security_template
+  script:
+    - cd frontend/
+    - npm audit --audit-level high
+    - npm run lint:security
+  rules:
+    - changes:
+        - frontend/**/*
+
+package:frontend:
+  extends: .service_package_template
+  script:
+    - docker build -f frontend/Dockerfile -t $DOCKER_REGISTRY/frontend:$CI_COMMIT_SHA frontend/
+    - docker push $DOCKER_REGISTRY/frontend:$CI_COMMIT_SHA
+  dependencies:
+    - build:frontend
+  rules:
+    - changes:
+        - frontend/**/*

@@ -1,0 +1,216 @@
+# BEFORE: Scenario 9 - Cross-Repository Include Optimization
+# This shows redundant external includes that can be consolidated
+
+include:
+  # Multiple includes from same external repository with overlapping functionality
+  - project: 'devops/ci-templates'
+    file: '/docker/build-template.yml'
+    ref: 'v1.2.0'
+  - project: 'devops/ci-templates'
+    file: '/docker/push-template.yml'
+    ref: 'v1.2.0'
+  - project: 'devops/ci-templates'
+    file: '/docker/registry-login.yml'
+    ref: 'v1.2.0'
+  - project: 'devops/ci-templates'
+    file: '/kubernetes/deploy-template.yml'
+    ref: 'v1.2.0'
+  - project: 'devops/ci-templates'
+    file: '/kubernetes/rollback-template.yml'
+    ref: 'v1.2.0'
+  - project: 'devops/ci-templates'
+    file: '/security/scanner-template.yml'
+    ref: 'v1.1.5'
+  - project: 'devops/ci-templates'
+    file: '/security/dependency-check.yml'
+    ref: 'v1.1.5'
+  - project: 'devops/ci-templates'
+    file: '/quality/sonar-template.yml'
+    ref: 'v2.0.1'
+  # Outdated external includes
+  - project: 'legacy/build-tools'
+    file: '/node/build.yml'
+    ref: 'v0.5.2'
+  - project: 'legacy/build-tools'  
+    file: '/node/test.yml'
+    ref: 'v0.5.2'
+  # Local includes that could be consolidated
+  - local: 'ci/frontend-build.yml'
+  - local: 'ci/frontend-test.yml'
+  - local: 'ci/backend-build.yml'
+  - local: 'ci/backend-test.yml'
+  - local: 'ci/database-migration.yml'
+
+stages:
+  - validate
+  - build
+  - test
+  - security
+  - quality
+  - package  
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: "registry.company.com"
+  PROJECT_NAME: "web-application"
+  SONAR_PROJECT_KEY: "company:web-application"
+
+# Jobs that use multiple external templates redundantly
+validate:dockerfile:
+  extends: .docker-registry-login  # from devops/ci-templates
+  stage: validate
+  script:
+    - docker run --rm -i hadolint/hadolint < frontend/Dockerfile
+    - docker run --rm -i hadolint/hadolint < backend/Dockerfile
+
+build:frontend:docker:
+  extends:
+    - .docker-registry-login     # from devops/ci-templates
+    - .docker-build-template     # from devops/ci-templates
+  stage: build
+  variables:
+    DOCKERFILE_PATH: "frontend/Dockerfile"
+    BUILD_CONTEXT: "frontend/"
+    IMAGE_NAME: "$DOCKER_REGISTRY/$PROJECT_NAME/frontend"
+  dependencies:
+    - build:frontend:assets
+
+build:backend:docker:
+  extends:
+    - .docker-registry-login     # from devops/ci-templates
+    - .docker-build-template     # from devops/ci-templates
+  stage: build
+  variables:
+    DOCKERFILE_PATH: "backend/Dockerfile"
+    BUILD_CONTEXT: "backend/"
+    IMAGE_NAME: "$DOCKER_REGISTRY/$PROJECT_NAME/backend"
+  dependencies:
+    - build:backend:compile
+
+push:frontend:
+  extends:
+    - .docker-registry-login     # from devops/ci-templates
+    - .docker-push-template      # from devops/ci-templates
+  stage: build
+  variables:
+    IMAGE_NAME: "$DOCKER_REGISTRY/$PROJECT_NAME/frontend"
+  dependencies:
+    - build:frontend:docker
+
+push:backend:
+  extends:
+    - .docker-registry-login     # from devops/ci-templates
+    - .docker-push-template      # from devops/ci-templates
+  stage: build
+  variables:
+    IMAGE_NAME: "$DOCKER_REGISTRY/$PROJECT_NAME/backend"
+  dependencies:
+    - build:backend:docker
+
+# Legacy template usage
+build:frontend:assets:
+  extends: .node-build-legacy    # from legacy/build-tools
+  stage: build
+  script:
+    - cd frontend/
+    - npm run build:production
+  artifacts:
+    paths:
+      - frontend/dist/
+
+build:backend:compile:
+  extends: .node-build-legacy    # from legacy/build-tools
+  stage: build
+  script:
+    - cd backend/
+    - npm run compile
+  artifacts:
+    paths:
+      - backend/dist/
+
+test:frontend:unit:
+  extends: .node-test-legacy     # from legacy/build-tools
+  stage: test
+  script:
+    - cd frontend/
+    - npm run test:unit
+
+test:backend:unit:
+  extends: .node-test-legacy     # from legacy/build-tools
+  stage: test
+  script:
+    - cd backend/
+    - npm run test:unit
+
+# Multiple security scans using different template versions
+security:dependency-scan:
+  extends: .dependency-check-template  # from devops/ci-templates v1.1.5
+  stage: security
+
+security:container-scan:
+  extends: .security-scanner-template  # from devops/ci-templates v1.1.5
+  stage: security
+  variables:
+    SCAN_TARGET: "$DOCKER_REGISTRY/$PROJECT_NAME/frontend:$CI_COMMIT_SHA"
+
+security:code-analysis:
+  extends: .security-scanner-template  # from devops/ci-templates v1.1.5
+  stage: security
+  script:
+    - echo "Running custom security analysis..."
+    - npm audit --audit-level high
+
+# Quality analysis
+quality:sonarqube:
+  extends: .sonar-scanner-template     # from devops/ci-templates v2.0.1
+  stage: quality
+  variables:
+    SONAR_SOURCES: "frontend/src,backend/src"
+    SONAR_EXCLUSIONS: "**/node_modules/**,**/dist/**"
+
+# Deployment using multiple Kubernetes templates
+deploy:staging:
+  extends: 
+    - .kubernetes-deploy-template      # from devops/ci-templates
+    - .docker-registry-login           # from devops/ci-templates
+  stage: deploy
+  variables:
+    ENVIRONMENT: "staging"
+    NAMESPACE: "staging"
+    FRONTEND_IMAGE: "$DOCKER_REGISTRY/$PROJECT_NAME/frontend:$CI_COMMIT_SHA"
+    BACKEND_IMAGE: "$DOCKER_REGISTRY/$PROJECT_NAME/backend:$CI_COMMIT_SHA"
+  environment:
+    name: staging
+    url: https://staging.company.com
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+deploy:production:
+  extends:
+    - .kubernetes-deploy-template      # from devops/ci-templates  
+    - .docker-registry-login           # from devops/ci-templates
+  stage: deploy
+  variables:
+    ENVIRONMENT: "production"
+    NAMESPACE: "production"
+    FRONTEND_IMAGE: "$DOCKER_REGISTRY/$PROJECT_NAME/frontend:$CI_COMMIT_SHA"
+    BACKEND_IMAGE: "$DOCKER_REGISTRY/$PROJECT_NAME/backend:$CI_COMMIT_SHA"
+  environment:
+    name: production
+    url: https://company.com
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: manual
+
+# Rollback job
+rollback:production:
+  extends:
+    - .kubernetes-rollback-template    # from devops/ci-templates
+    - .docker-registry-login           # from devops/ci-templates
+  stage: deploy
+  variables:
+    ENVIRONMENT: "production"
+    NAMESPACE: "production"
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'

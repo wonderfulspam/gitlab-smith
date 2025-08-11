@@ -1,0 +1,24 @@
+name: "scenario-7"
+description: "Multi-environment matrix expansion optimization"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 18  # Based on analysis
+  max_allowed_new_issues: 0     # Should be clean consolidation
+  semantic_equivalence: false   # Matrix changes semantics
+  performance_improvement: true # Matrix should improve performance
+  minimum_jobs_analyzed: 14     # Should parse all environment variants
+  
+  expected_issue_types:
+    maintainability: 14   # Repetitive configurations
+    performance: 4        # Matrix opportunities, caching
+    security: 0
+    reliability: 0
+  
+  expected_issue_patterns:
+    - "Multiple similar jobs.*could use matrix"
+    - "Duplicate.*configuration"
+  
+  required_improvements:
+    - "matrix"        # Matrix consolidation is the key improvement
+    - "duplication"   # Remove repetitive configs

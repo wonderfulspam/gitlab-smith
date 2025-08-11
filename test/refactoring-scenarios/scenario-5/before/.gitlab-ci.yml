@@ -1,0 +1,28 @@
+# Simple scenario for scenario-5 before
+stages:
+  - lint
+  - test
+
+variables:
+  PYTHON_VERSION: "3.9"
+
+lint:flake8:
+  stage: lint
+  image: python:3.9
+  script:
+    - pip install flake8
+    - flake8 .
+
+lint:black:
+  stage: lint
+  image: python:3.9
+  script:
+    - pip install black
+    - black --check .
+
+test:unit:
+  stage: test
+  image: python:3.9
+  script:
+    - pip install -r requirements.txt
+    - python -m pytest tests/

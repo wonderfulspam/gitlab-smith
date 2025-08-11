@@ -1,0 +1,44 @@
+# BEFORE: Repeated variables across multiple jobs
+stages:
+  - test
+  - build
+
+test:api:
+  stage: test
+  image: python:3.11
+  variables:
+    PYTHON_ENV: "test"
+    API_URL: "https://api.company.com"
+    DATABASE_URL: "postgresql://test:test@localhost:5432/test"
+  script:
+    - pytest tests/api/
+
+test:workers:
+  stage: test
+  image: python:3.11
+  variables:
+    PYTHON_ENV: "test"
+    API_URL: "https://api.company.com" 
+    QUEUE_URL: "redis://localhost:6379/1"
+  script:
+    - pytest tests/workers/
+
+build:api:
+  stage: build
+  image: python:3.11
+  variables:
+    PYTHON_ENV: "production"
+    API_URL: "https://api.company.com"
+    BUILD_TARGET: "api"
+  script:
+    - python setup.py build
+
+build:workers:
+  stage: build
+  image: python:3.11
+  variables:
+    PYTHON_ENV: "production"
+    API_URL: "https://api.company.com"
+    BUILD_TARGET: "workers"
+  script:
+    - python setup.py build

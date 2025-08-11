@@ -198,6 +198,12 @@ func (r *Renderer) simulatePipelineExecution(config *parser.GitLabConfig) *Pipel
 		if job == nil {
 			continue
 		}
+		
+		// Skip template jobs (starting with .) as they don't run independently
+		if strings.HasPrefix(jobName, ".") {
+			continue
+		}
+		
 		jobExec := JobExecution{
 			ID:           0, // Simulated
 			Name:         jobName,
@@ -205,7 +211,7 @@ func (r *Renderer) simulatePipelineExecution(config *parser.GitLabConfig) *Pipel
 			Status:       "simulated",
 			Dependencies: job.Dependencies,
 			Needs:        extractJobNames(job.Needs),
-			Duration:     estimateJobDuration(job),
+			Duration:     estimateJobDurationWithContext(job, config.Jobs),
 			QueuedDuration: 0,
 		}
 
@@ -458,11 +464,76 @@ func estimateJobDuration(job *parser.JobConfig) float64 {
 	baseDuration := 30.0 // 30 seconds base
 	scriptFactor := float64(len(job.Script)) * 2.0 // 2 seconds per script line
 	
+	// Add before_script overhead (typically setup commands)
+	beforeScriptFactor := float64(len(job.BeforeScript)) * 2.0 // 2 seconds per before_script line
+	
 	if len(job.Services) > 0 {
 		baseDuration += 15.0 // Additional time for services
 	}
 	
-	return baseDuration + scriptFactor
+	return baseDuration + scriptFactor + beforeScriptFactor
+}
+
+// estimateJobDurationWithContext considers template inheritance for more accurate estimation
+func estimateJobDurationWithContext(job *parser.JobConfig, allJobs map[string]*parser.JobConfig) float64 {
+	baseDuration := 30.0 // 30 seconds base
+	scriptFactor := float64(len(job.Script)) * 2.0 // 2 seconds per script line
+	
+	// Calculate before_script - either direct or from template
+	beforeScriptLines := len(job.BeforeScript)
+	
+	// If job uses extends, get before_script from template
+	extendsTemplates := extractExtendsTemplates(job.Extends)
+	if len(extendsTemplates) > 0 {
+		for _, templateName := range extendsTemplates {
+			if template, exists := allJobs[templateName]; exists && template != nil {
+				beforeScriptLines += len(template.BeforeScript)
+			}
+		}
+	}
+	
+	beforeScriptFactor := float64(beforeScriptLines) * 2.0
+	
+	if len(job.Services) > 0 {
+		baseDuration += 15.0 // Additional time for services
+	}
+	
+	// Optimization bonus: if using templates, reduce overhead slightly due to better caching/reuse
+	optimizationBonus := 0.0
+	if len(extendsTemplates) > 0 {
+		optimizationBonus = 3.0 // Small improvement from template reuse
+	}
+	
+	duration := baseDuration + scriptFactor + beforeScriptFactor - optimizationBonus
+	if duration < 10.0 {
+		duration = 10.0 // Minimum duration
+	}
+	
+	return duration
+}
+
+func extractExtendsTemplates(extends interface{}) []string {
+	if extends == nil {
+		return []string{}
+	}
+	
+	// Handle different extend formats
+	switch v := extends.(type) {
+	case string:
+		return []string{v}
+	case []string:
+		return v
+	case []interface{}:
+		templates := make([]string, 0, len(v))
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				templates = append(templates, str)
+			}
+		}
+		return templates
+	default:
+		return []string{}
+	}
 }
 
 func getStageOrder(stageName string, stages []string) int {

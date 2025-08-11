@@ -1,0 +1,130 @@
+# AFTER: Scenario 9 - Optimized Cross-Repository Includes
+# Consolidated external includes and updated to latest versions
+
+include:
+  # Consolidated external includes - single comprehensive template per concern
+  - project: 'devops/ci-templates'
+    file: '/docker/complete-pipeline.yml'    # Consolidated docker templates
+    ref: 'v1.3.0'                           # Updated to latest
+  - project: 'devops/ci-templates' 
+    file: '/kubernetes/deployment-suite.yml'  # Consolidated k8s templates
+    ref: 'v1.3.0'
+  - project: 'devops/ci-templates'
+    file: '/security/security-suite.yml'      # Consolidated security templates
+    ref: 'v1.2.0'                            # Updated from v1.1.5
+  - project: 'devops/ci-templates'
+    file: '/quality/quality-suite.yml'        # Updated quality templates
+    ref: 'v2.1.0'                            # Updated from v2.0.1
+  # Replaced legacy includes with modern equivalents
+  - project: 'devops/ci-templates'
+    file: '/node/modern-node-pipeline.yml'    # Replaces legacy/build-tools
+    ref: 'v1.3.0'
+  # Consolidated local includes
+  - local: 'ci/application-pipeline.yml'      # Consolidated all local includes
+
+stages:
+  - validate
+  - build
+  - test
+  - security
+  - quality
+  - package  
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: "registry.company.com"
+  PROJECT_NAME: "web-application"
+  SONAR_PROJECT_KEY: "company:web-application"
+
+# Simplified jobs using consolidated templates
+validate:dockerfile:
+  extends: .docker-complete-setup  # Single template with all docker functionality
+  stage: validate
+  script:
+    - docker run --rm -i hadolint/hadolint < frontend/Dockerfile
+    - docker run --rm -i hadolint/hadolint < backend/Dockerfile
+
+# Build jobs using modern node templates and consolidated docker
+build:
+  extends: .node-modern-build      # Modern replacement for legacy templates
+  parallel:
+    matrix:
+      - SERVICE: frontend
+        BUILD_SCRIPT: "build:production"
+        DOCKERFILE: "frontend/Dockerfile"
+        CONTEXT: "frontend/"
+      - SERVICE: backend
+        BUILD_SCRIPT: "compile"
+        DOCKERFILE: "backend/Dockerfile"  
+        CONTEXT: "backend/"
+  script:
+    - cd $SERVICE/
+    - npm run $BUILD_SCRIPT
+    - docker build -f $DOCKERFILE -t $DOCKER_REGISTRY/$PROJECT_NAME/$SERVICE:$CI_COMMIT_SHA $CONTEXT
+    - docker push $DOCKER_REGISTRY/$PROJECT_NAME/$SERVICE:$CI_COMMIT_SHA
+  artifacts:
+    paths:
+      - $SERVICE/dist/
+
+# Test jobs using modern templates
+test:unit:
+  extends: .node-modern-test       # Modern replacement for legacy templates
+  parallel:
+    matrix:
+      - SERVICE: [frontend, backend]
+  script:
+    - cd $SERVICE/
+    - npm run test:unit
+
+# Consolidated security scanning
+security:complete:
+  extends: .security-suite-template  # Single template for all security scans
+  stage: security
+  variables:
+    SCAN_TARGETS: |
+      $DOCKER_REGISTRY/$PROJECT_NAME/frontend:$CI_COMMIT_SHA
+      $DOCKER_REGISTRY/$PROJECT_NAME/backend:$CI_COMMIT_SHA
+
+# Quality analysis with updated template
+quality:sonarqube:
+  extends: .quality-suite-template   # Updated quality template
+  stage: quality
+  variables:
+    SONAR_SOURCES: "frontend/src,backend/src"
+    SONAR_EXCLUSIONS: "**/node_modules/**,**/dist/**"
+
+# Simplified deployment using consolidated kubernetes templates
+deploy:
+  extends: .kubernetes-deployment-suite  # Single template for complete k8s deployment
+  parallel:
+    matrix:
+      - ENVIRONMENT: staging
+        NAMESPACE: staging
+        URL: "https://staging.company.com"
+        RULE: '$CI_COMMIT_BRANCH == "main"'
+      - ENVIRONMENT: production
+        NAMESPACE: production
+        URL: "https://company.com"
+        RULE: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+        MANUAL: true
+  variables:
+    FRONTEND_IMAGE: "$DOCKER_REGISTRY/$PROJECT_NAME/frontend:$CI_COMMIT_SHA"
+    BACKEND_IMAGE: "$DOCKER_REGISTRY/$PROJECT_NAME/backend:$CI_COMMIT_SHA"
+  dependencies:
+    - build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $ENVIRONMENT == "staging"'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/ && $ENVIRONMENT == "production"'
+      when: manual
+
+# Simplified rollback
+rollback:production:
+  extends: .kubernetes-deployment-suite
+  stage: deploy
+  variables:
+    ENVIRONMENT: "production"
+    NAMESPACE: "production"
+    ROLLBACK_MODE: true
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'

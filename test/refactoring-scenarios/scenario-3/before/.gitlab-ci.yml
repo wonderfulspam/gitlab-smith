@@ -1,0 +1,24 @@
+# Simple scenario for scenario-3 before
+stages:
+  - build
+  - test
+
+variables:
+  NODE_VERSION: "16"
+
+build:
+  stage: build
+  image: node:16
+  script:
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+test:
+  stage: test
+  image: node:16
+  script:
+    - npm ci
+    - npm test

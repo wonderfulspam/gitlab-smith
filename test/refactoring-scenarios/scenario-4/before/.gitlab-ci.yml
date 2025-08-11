@@ -1,0 +1,27 @@
+# Simple scenario for scenario-4 before
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: "registry.example.com"
+
+build:
+  stage: build
+  image: docker:latest
+  script:
+    - docker build -t app .
+  
+test:
+  stage: test
+  image: docker:latest
+  script:
+    - docker run app npm test
+
+deploy:
+  stage: deploy
+  image: docker:latest
+  script:
+    - docker tag app $DOCKER_REGISTRY/app:latest
+    - docker push $DOCKER_REGISTRY/app:latest

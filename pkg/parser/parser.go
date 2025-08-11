@@ -48,7 +48,7 @@ type JobConfig struct {
 	ResourceGroup string                 `yaml:"resource_group,omitempty" json:"resource_group,omitempty"`
 	Environment   *Environment           `yaml:"environment,omitempty" json:"environment,omitempty"`
 	Coverage      string                 `yaml:"coverage,omitempty" json:"coverage,omitempty"`
-	Extends       []string               `yaml:"extends,omitempty" json:"extends,omitempty"`
+	Extends       interface{}            `yaml:"extends,omitempty" json:"extends,omitempty"`
 }
 
 type Cache struct {
@@ -108,9 +108,22 @@ type Environment struct {
 }
 
 func Parse(data []byte) (*GitLabConfig, error) {
+	// First parse with anchor/alias resolution
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		return nil, fmt.Errorf("parsing YAML structure: %w", err)
+	}
+
+	// Resolve anchors and aliases
+	resolvedData, err := yaml.Marshal(&node)
+	if err != nil {
+		return nil, fmt.Errorf("resolving YAML anchors: %w", err)
+	}
+
+	// Parse the resolved YAML into our structure
 	var raw map[string]interface{}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshaling YAML: %w", err)
+	if err := yaml.Unmarshal(resolvedData, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshaling resolved YAML: %w", err)
 	}
 
 	config := &GitLabConfig{
@@ -141,7 +154,7 @@ func Parse(data []byte) (*GitLabConfig, error) {
 				config.Default = &defaultJob
 			}
 		default:
-			if !isReservedKeyword(key) && key[0] != '.' && isJobDefinition(value) {
+			if !isReservedKeyword(key) && isJobDefinition(value) {
 				jobBytes, _ := yaml.Marshal(value)
 				var job JobConfig
 				if err := yaml.Unmarshal(jobBytes, &job); err == nil {
@@ -152,6 +165,30 @@ func Parse(data []byte) (*GitLabConfig, error) {
 	}
 
 	return config, nil
+}
+
+// GetExtends returns the extends field as a slice of strings, handling both string and []string cases
+func (j *JobConfig) GetExtends() []string {
+	if j.Extends == nil {
+		return nil
+	}
+	
+	switch v := j.Extends.(type) {
+	case string:
+		return []string{v}
+	case []string:
+		return v
+	case []interface{}:
+		var extends []string
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				extends = append(extends, str)
+			}
+		}
+		return extends
+	default:
+		return nil
+	}
 }
 
 func parseInclude(value interface{}, config *GitLabConfig) {

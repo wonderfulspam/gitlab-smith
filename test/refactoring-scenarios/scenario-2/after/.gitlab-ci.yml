@@ -1,0 +1,20 @@
+# AFTER: Scenario 2 - Complex Include Consolidation
+# This version breaks the monolithic config into logical includes
+
+include:
+  - local: 'ci/security.yml'
+  - local: 'ci/build.yml'
+  - local: 'ci/test.yml'
+  - local: 'ci/quality.yml'
+  - local: 'ci/deploy.yml'
+
+stages:
+  - security
+  - build
+  - test
+  - quality
+  - deploy
+
+variables:
+  NODE_VERSION: "18"
+  PYTHON_VERSION: "3.10"

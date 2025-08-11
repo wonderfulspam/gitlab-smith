@@ -1,0 +1,29 @@
+name: "scenario-8"
+description: "Nested template inheritance consolidation"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 28  # Based on analysis showing 30 issues in before, 2 in after
+  max_allowed_new_issues: 2
+  semantic_equivalence: false   # Complex refactoring changes semantics
+  performance_improvement: true # Matrix consolidation should improve performance
+  minimum_jobs_analyzed: 22     # Should parse all jobs including templates
+  
+  expected_issue_types:
+    maintainability: 26   # Deep inheritance, redundant commands
+    performance: 2        # Cache usage, matrix opportunities
+    security: 2          # Latest tag, exposed password
+    reliability: 0
+  
+  expected_issue_patterns:
+    - "Template has deep inheritance chain"
+    - "Template repeats commands from parent"
+    - "Multiple similar jobs.*could use matrix strategy"
+    - "Using 'latest' tag"
+    - "Potential secret in variable name"
+  
+  required_improvements:
+    - "template"      # Template complexity reduction
+    - "extends"       # Inheritance flattening
+    - "matrix"        # Matrix consolidation
+    - "redundancy"    # Duplicate command removal

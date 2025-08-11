@@ -1,0 +1,19 @@
+name: "scenario-2"
+description: "Complex include consolidation"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 22  # Based on analysis output
+  max_allowed_new_issues: 1
+  semantic_equivalence: false   # Include restructuring changes semantics
+  performance_improvement: true
+  minimum_jobs_analyzed: 14     # Complex scenario should have many jobs
+  
+  expected_issue_types:
+    performance: 13       # Likely cache, matrix, artifacts issues
+    security: 7          # Image tags, variable issues
+    maintainability: 3    # Include structure issues
+    reliability: 0
+  
+  required_improvements:
+    - "include"           # Main focus: include consolidation

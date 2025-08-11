@@ -1,0 +1,65 @@
+# API service CI configuration
+build:api:
+  extends:
+    - .python_setup
+    - .service_build_template
+  script:
+    - cd api/
+    - python -m pytest tests/unit/ --cov=app --cov-report=xml
+    - python -m pylint app/
+    - python -m mypy app/
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: api/coverage.xml
+  rules:
+    - changes:
+        - api/**/*
+        - requirements.txt
+
+test:api:integration:
+  extends:
+    - .python_setup
+    - .service_test_template
+  services:
+    - postgres:13
+    - redis:6
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser
+    POSTGRES_PASSWORD: testpass
+    DATABASE_URL: "postgresql://testuser:testpass@postgres:5432/testdb"
+    REDIS_URL: "redis://redis:6379"
+  script:
+    - cd api/
+    - python -m pytest tests/integration/ -v
+  rules:
+    - changes:
+        - api/**/*
+  dependencies:
+    - build:api
+
+security:api:
+  extends:
+    - .python_setup
+    - .service_security_template
+  script:
+    - cd api/
+    - python -m bandit -r app/
+    - python -m safety check
+    - python -m pip-audit
+  rules:
+    - changes:
+        - api/**/*
+
+package:api:
+  extends: .service_package_template
+  script:
+    - docker build -f api/Dockerfile -t $DOCKER_REGISTRY/api:$CI_COMMIT_SHA api/
+    - docker push $DOCKER_REGISTRY/api:$CI_COMMIT_SHA
+  dependencies:
+    - build:api
+  rules:
+    - changes:
+        - api/**/*

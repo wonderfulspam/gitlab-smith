@@ -1,0 +1,24 @@
+# AFTER: Scenario 6 - Microservices CI with Proper Include Structure
+# Refactored to use service-specific includes with shared templates
+
+include:
+  - local: 'ci/templates.yml'
+  - local: 'ci/frontend.yml'
+  - local: 'ci/api.yml'
+  - local: 'ci/worker.yml'
+  - local: 'ci/gateway.yml'
+  - local: 'ci/deployment.yml'
+
+stages:
+  - build
+  - test
+  - security
+  - package
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: "registry.company.com"
+  KUBERNETES_NAMESPACE: "production"
+  NODE_VERSION: "18"
+  PYTHON_VERSION: "3.11"
+  GO_VERSION: "1.20"

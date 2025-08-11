@@ -1,0 +1,49 @@
+# Consolidated local application-specific pipeline configuration
+# Replaces multiple separate local includes
+
+# Application-specific variables and templates
+variables:
+  FRONTEND_PORT: "3000"
+  BACKEND_PORT: "8000"
+  DATABASE_MIGRATIONS_PATH: "backend/migrations"
+
+# Local templates for application-specific behavior
+.app_database_migration:
+  image: node:18
+  before_script:
+    - cd backend/
+    - npm ci
+  script:
+    - npm run migrate:up
+  rules:
+    - changes:
+        - backend/migrations/**/*
+
+.app_integration_test:
+  image: node:18
+  services:
+    - postgres:13
+    - redis:6
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser  
+    POSTGRES_PASSWORD: testpass
+    DATABASE_URL: "postgresql://testuser:testuser@postgres:5432/testdb"
+    REDIS_URL: "redis://redis:6379"
+  before_script:
+    - npm ci
+  script:
+    - npm run test:integration
+
+# Database migration job
+migrate:database:
+  extends: .app_database_migration
+  stage: build
+  needs: []
+
+# Integration tests that require both services
+test:integration:
+  extends: .app_integration_test
+  stage: test
+  dependencies:
+    - build

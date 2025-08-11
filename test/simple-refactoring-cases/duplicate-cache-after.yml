@@ -1,0 +1,32 @@
+# AFTER: Cache configuration consolidated using default
+stages:
+  - build
+  - test
+
+variables:
+  NODE_VERSION: "16"
+
+default:
+  image: node:$NODE_VERSION
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - node_modules/
+      - .npm/
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+build:
+  stage: build
+  script:
+    - npm run build
+
+test:unit:
+  stage: test  
+  script:
+    - npm test
+
+test:lint:
+  stage: test
+  script:
+    - npm run lint

@@ -1,0 +1,146 @@
+# AFTER: Scenario 8 - Simplified Template Inheritance Structure
+# Consolidated inheritance chain with clear, purposeful templates
+
+include:
+  - local: 'ci/templates.yml'
+
+stages:
+  - validate
+  - build
+  - test
+  - security
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: "registry.company.com"
+  NODE_VERSION: "18"
+
+# Validation jobs
+validate:yaml:
+  extends: .base_alpine
+  stage: validate
+  script:
+    - apk add --no-cache yamllint
+    - yamllint .gitlab-ci.yml
+    - find . -name "*.yml" -o -name "*.yaml" | xargs yamllint
+
+validate:dockerfile:
+  extends: .docker_template
+  stage: validate
+  script:
+    - docker run --rm -i hadolint/hadolint < Dockerfile
+
+# Build jobs
+build:frontend:
+  extends: .node_build
+  script:
+    - cd frontend/
+    - npm run build:production
+    - npm run optimize
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 hour
+
+build:backend:
+  extends: .node_build
+  script:
+    - cd backend/
+    - npm run build
+    - npm run compile:production
+  artifacts:
+    paths:
+      - backend/dist/
+    expire_in: 1 hour
+
+# Test jobs
+test:unit:frontend:
+  extends: .node_test
+  script:
+    - cd frontend/
+    - npm run test:unit -- --coverage
+  coverage: '/Coverage: \d+\.\d+%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: frontend/coverage/cobertura-coverage.xml
+
+test:unit:backend:
+  extends: .node_test
+  script:
+    - cd backend/
+    - npm run test:unit -- --coverage
+  coverage: '/Coverage: \d+\.\d+%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage/cobertura-coverage.xml
+
+test:integration:
+  extends: .node_integration_test
+  script:
+    - npm run test:integration
+  dependencies:
+    - build:frontend
+    - build:backend
+
+# Lint jobs using matrix
+lint:
+  extends: .node_test
+  parallel:
+    matrix:
+      - LINT_TYPE: "eslint"
+        SCRIPT: "lint:js && npm run lint:ts"
+      - LINT_TYPE: "stylelint" 
+        SCRIPT: "lint:css && npm run lint:scss"
+      - LINT_TYPE: "prettier"
+        SCRIPT: "format:check"
+  script:
+    - npm run $SCRIPT
+
+# Security jobs using matrix
+security:
+  extends: .node_test
+  parallel:
+    matrix:
+      - SECURITY_TYPE: "npm-audit"
+        SCRIPT: "audit --audit-level high && npm run security:check"
+      - SECURITY_TYPE: "dependency-check"
+        SCRIPT: "install -g audit-ci && audit-ci --moderate"  
+      - SECURITY_TYPE: "code-scan"
+        SCRIPT: "install -g eslint-plugin-security && npm run lint:security"
+  script:
+    - npm $SCRIPT
+
+# Package job
+package:docker:
+  extends: .docker_deploy
+  script:
+    - docker build -t $DOCKER_REGISTRY/app:$CI_COMMIT_SHA .
+    - docker push $DOCKER_REGISTRY/app:$CI_COMMIT_SHA
+  dependencies:
+    - build:frontend
+    - build:backend
+
+# Deploy jobs using matrix
+deploy:
+  extends: .kubernetes_deploy
+  parallel:
+    matrix:
+      - ENVIRONMENT: staging
+        NAMESPACE: staging
+        URL: "https://staging.company.com"
+        RULE: '$CI_COMMIT_BRANCH == "main"'
+      - ENVIRONMENT: production
+        NAMESPACE: production
+        URL: "https://company.com"
+        RULE: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+        MANUAL: true
+  dependencies:
+    - package:docker
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $ENVIRONMENT == "staging"'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/ && $ENVIRONMENT == "production"'
+      when: manual

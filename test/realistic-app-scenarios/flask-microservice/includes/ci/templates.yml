@@ -1,0 +1,111 @@
+# Base templates for Flask microservice pipeline
+
+.python_base_template:
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+
+.python_dev_template:
+  extends: .python_base_template
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install black isort flake8 mypy
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+
+.python_test_template:
+  extends: .python_base_template
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git postgresql-client
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - pip install pytest pytest-cov pytest-mock
+
+.python_integration_template:
+  extends: .python_test_template
+  services:
+    - postgres:14
+    - redis:7
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser
+    POSTGRES_PASSWORD: testpass
+    DATABASE_URL: "postgresql://testuser:testpass@postgres:5432/testdb"
+    REDIS_URL: "redis://redis:6379/0"
+    FLASK_ENV: "testing"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git postgresql-client
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - pip install pytest pytest-cov pytest-mock
+    - echo "Waiting for database to be ready..."
+    - sleep 10
+    - psql $DATABASE_URL -c "SELECT version();"
+    - python -c "import redis; r = redis.Redis.from_url('redis://redis:6379/0'); r.ping()"
+
+.python_e2e_template:
+  extends: .python_integration_template
+  services:
+    - postgres:14
+    - redis:7
+    - selenium/standalone-chrome:latest
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser
+    POSTGRES_PASSWORD: testpass
+    DATABASE_URL: "postgresql://testuser:testpass@postgres:5432/testdb"
+    REDIS_URL: "redis://redis:6379/0"
+    FLASK_ENV: "testing"
+    SELENIUM_URL: "http://selenium:4444/wd/hub"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git postgresql-client curl
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - pip install pytest pytest-cov pytest-mock selenium
+    - echo "Waiting for services to be ready..."
+    - sleep 15
+    - psql $DATABASE_URL -c "SELECT version();"
+    - curl -sSf http://selenium:4444/status
+
+.python_security_template:
+  extends: .python_base_template
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --upgrade pip
+    - pip install bandit[toml] safety pip-audit
+    - pip install -r requirements.txt
+
+.docker_build_template:
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker info
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
+
+.kubernetes_deploy_template:
+  image: bitnami/kubectl:latest
+  before_script:
+    - echo "Deploying to $ENVIRONMENT environment"
+    - kubectl version --client
+    - kubectl config use-context $ENVIRONMENT
+  script:
+    - echo "Running database migrations..."
+    - kubectl run migration-job-$CI_COMMIT_SHORT_SHA --image=$DOCKER_REGISTRY/flask-microservice-migrations:$CI_COMMIT_SHA --restart=Never -n $NAMESPACE
+    - kubectl wait --for=condition=complete job/migration-job-$CI_COMMIT_SHORT_SHA -n $NAMESPACE --timeout=300s
+    - echo "Updating application deployment..."
+    - kubectl set image deployment/flask-microservice flask-microservice=$DOCKER_REGISTRY/flask-microservice:$CI_COMMIT_SHA -n $NAMESPACE
+    - kubectl patch deployment flask-microservice -p '{"spec":{"replicas":'$REPLICAS'}}' -n $NAMESPACE
+    - kubectl rollout status deployment/flask-microservice -n $NAMESPACE --timeout=600s
+    - echo "$ENVIRONMENT deployment completed"
+  environment:
+    name: $ENVIRONMENT
+    url: $URL

@@ -1,0 +1,60 @@
+# Gateway service CI configuration
+build:gateway:
+  extends:
+    - .go_setup
+    - .service_build_template
+  script:
+    - cd gateway/
+    - go test ./... -cover -coverprofile=coverage.out
+    - go vet ./...
+    - golangci-lint run
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: gateway/coverage.out
+  rules:
+    - changes:
+        - gateway/**/*
+        - go.mod
+        - go.sum
+
+test:gateway:integration:
+  extends:
+    - .go_setup
+    - .service_test_template
+  services:
+    - postgres:13
+  variables:
+    DATABASE_URL: "postgresql://testuser:testpass@postgres:5432/testdb"
+  script:
+    - cd gateway/
+    - go test ./tests/integration -v
+  rules:
+    - changes:
+        - gateway/**/*
+  dependencies:
+    - build:gateway
+
+security:gateway:
+  extends:
+    - .go_setup
+    - .service_security_template
+  script:
+    - cd gateway/
+    - gosec ./...
+    - go list -json -m all | nancy sleuth
+  rules:
+    - changes:
+        - gateway/**/*
+
+package:gateway:
+  extends: .service_package_template
+  script:
+    - docker build -f gateway/Dockerfile -t $DOCKER_REGISTRY/gateway:$CI_COMMIT_SHA gateway/
+    - docker push $DOCKER_REGISTRY/gateway:$CI_COMMIT_SHA
+  dependencies:
+    - build:gateway
+  rules:
+    - changes:
+        - gateway/**/*

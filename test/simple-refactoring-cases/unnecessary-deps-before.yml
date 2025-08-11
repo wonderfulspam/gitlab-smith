@@ -1,0 +1,42 @@
+# BEFORE: Unnecessary explicit dependencies that GitLab can infer
+stages:
+  - build
+  - test
+  - package
+
+build:frontend:
+  stage: build
+  image: node:22
+  script:
+    - npm run build:frontend
+  artifacts:
+    paths:
+      - dist/frontend/
+
+build:backend:
+  stage: build
+  image: node:22
+  script:
+    - npm run build:backend
+  artifacts:
+    paths:
+      - dist/backend/
+
+test:integration:
+  stage: test
+  image: node:22
+  dependencies:
+    - build:frontend
+    - build:backend
+  script:
+    - npm run test:integration
+
+package:
+  stage: package
+  image: docker:24.0
+  dependencies:
+    - build:frontend
+    - build:backend
+  script:
+    - docker build -t myapp:$CI_COMMIT_SHA .
+    - docker push myapp:$CI_COMMIT_SHA

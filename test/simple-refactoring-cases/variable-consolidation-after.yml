@@ -1,0 +1,143 @@
+# AFTER: Consolidated variables with smart defaults and environment-specific overrides
+stages:
+  - build
+  - test
+  - package
+  - deploy
+
+# Global variables consolidating repeated values
+variables:
+  # Common configurations
+  PYTHON_VERSION: "3.11"
+  API_VERSION: "v1"
+  PIP_CACHE_DIR: "/tmp/.pip-cache"
+  
+  # Environment-specific API endpoints
+  API_BASE_URL_PRODUCTION: "https://api.company.com"
+  API_BASE_URL_STAGING: "https://staging-api.company.com"
+  
+  # Docker configuration
+  DOCKER_REGISTRY: "registry.company.com"
+  IMAGE_NAME: "myapp"
+  
+  # Database configuration patterns
+  DB_NAME: "app_db"
+  DB_PORT: "5432"
+
+# Default for Python jobs
+default:
+  image: python:$PYTHON_VERSION
+  variables:
+    # Most jobs use production API for consistency
+    API_BASE_URL: "$API_BASE_URL_PRODUCTION"
+
+# Template for build jobs
+.build_base:
+  stage: build
+  variables:
+    PYTHON_ENV: "production"
+  script:
+    - echo "Building $BUILD_TARGET with PYTHON_ENV=$PYTHON_ENV"
+    - echo "API endpoint: $API_BASE_URL/$API_VERSION"
+    - pip install --cache-dir $PIP_CACHE_DIR -r requirements.txt
+    - python setup.py build
+
+# Template for test jobs  
+.test_base:
+  stage: test
+  variables:
+    PYTHON_ENV: "test"
+  script:
+    - echo "Running $TEST_TYPE tests with PYTHON_ENV=$PYTHON_ENV"
+    - echo "API endpoint: $API_BASE_URL/$API_VERSION"
+    - pip install --cache-dir $PIP_CACHE_DIR -r requirements-dev.txt
+
+# Template for deploy jobs
+.deploy_base:
+  stage: deploy
+  image: alpine:3.19
+  variables:
+    # Computed variables using patterns
+    FULL_API_URL: "$API_BASE_URL/$API_VERSION"
+  script:
+    - echo "Deploying to $DEPLOY_TARGET with PYTHON_ENV=$PYTHON_ENV"
+    - echo "API: $FULL_API_URL"
+    - kubectl set image deployment/api api=$DOCKER_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHA
+
+# Simplified build jobs
+build:api:
+  extends: .build_base
+  variables:
+    BUILD_TARGET: "api"
+
+build:workers:
+  extends: .build_base
+  variables:
+    BUILD_TARGET: "workers"
+    QUEUE_URL: "redis://redis.company.com:6379/0"
+    WORKER_CONCURRENCY: "4"
+  script:
+    - echo "Building $BUILD_TARGET with PYTHON_ENV=$PYTHON_ENV"
+    - echo "Queue: $QUEUE_URL, Concurrency: $WORKER_CONCURRENCY"
+    - pip install --cache-dir $PIP_CACHE_DIR -r requirements.txt
+    - python setup.py build
+
+# Simplified test jobs
+test:unit:
+  extends: .test_base
+  variables:
+    TEST_TYPE: "unit"
+    DATABASE_URL: "postgresql://test:test@localhost:$DB_PORT/test_db"
+  script:
+    - echo "Running $TEST_TYPE tests with PYTHON_ENV=$PYTHON_ENV"
+    - echo "API endpoint: $API_BASE_URL/$API_VERSION"
+    - pip install --cache-dir $PIP_CACHE_DIR -r requirements-dev.txt
+    - pytest tests/unit/ -v
+
+test:integration:
+  extends: .test_base
+  services:
+    - postgres:15
+    - redis:7
+  variables:
+    TEST_TYPE: "integration"
+    DATABASE_URL: "postgresql://postgres:postgres@postgres:$DB_PORT/test_db"
+    QUEUE_URL: "redis://redis:6379/1"
+  script:
+    - echo "Running $TEST_TYPE tests with PYTHON_ENV=$PYTHON_ENV"
+    - echo "API endpoint: $API_BASE_URL/$API_VERSION"
+    - pip install --cache-dir $PIP_CACHE_DIR -r requirements-dev.txt
+    - echo "Queue: $QUEUE_URL"
+    - pytest tests/integration/ -v
+
+# Simplified package job
+package:docker:
+  stage: package
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
+  variables:
+    DOCKER_BUILDKIT: "1"
+  script:
+    - echo "Building Docker image for $DOCKER_REGISTRY/$IMAGE_NAME"
+    - docker buildx build -t $DOCKER_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHA .
+    - docker push $DOCKER_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHA
+
+# Environment-specific deploy jobs
+deploy:staging:
+  extends: .deploy_base
+  variables:
+    PYTHON_ENV: "staging"
+    DEPLOY_TARGET: "staging"
+    API_BASE_URL: "$API_BASE_URL_STAGING"
+    DATABASE_URL: "postgresql://staging:$STAGING_PASSWORD@staging-db.company.com:$DB_PORT/$DB_NAME"
+    QUEUE_URL: "redis://staging-redis.company.com:6379/0"
+
+deploy:production:
+  extends: .deploy_base
+  variables:
+    PYTHON_ENV: "production"
+    DEPLOY_TARGET: "production"
+    DATABASE_URL: "postgresql://prod:$PROD_PASSWORD@prod-db.company.com:$DB_PORT/$DB_NAME"
+    QUEUE_URL: "redis://redis.company.com:6379/0"
+  when: manual

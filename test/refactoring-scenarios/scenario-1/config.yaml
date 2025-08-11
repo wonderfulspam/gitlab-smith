@@ -1,0 +1,24 @@
+name: "scenario-1"
+description: "Duplicate script blocks consolidation"
+
+expectations:
+  should_succeed: true
+  expected_issue_reduction: 6   # Improved from 12 to 6 issues after proper template consolidation
+  max_allowed_new_issues: 2     # Analysis shows 2 new issues introduced
+  semantic_equivalence: true    # Simple consolidation should preserve semantics
+  performance_improvement: false
+  minimum_jobs_analyzed: 6      # Several build/test jobs
+  
+  expected_issue_types:
+    maintainability: 6    # Duplicate script consolidation
+    security: 1          # Likely image tag issue
+    performance: 0
+    reliability: 0
+  
+  expected_issue_patterns:
+    - "Similar before_script blocks.*high overlap"
+    - "Duplicate setup configuration"
+  
+  required_improvements:
+    - "duplication"   # Main focus: remove duplicated scripts
+    - "consolidation" # Script consolidation

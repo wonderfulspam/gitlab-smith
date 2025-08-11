@@ -1,0 +1,179 @@
+# AFTER: Scenario 1 - Duplicate Script Blocks Consolidated
+# This version eliminates duplication using default configurations, templates, and shared scripts
+
+stages:
+  - build
+  - test
+  - package
+  - deploy
+
+variables:
+  NODE_VERSION: "16"
+  DOCKER_REGISTRY: "registry.company.com"
+  APPLICATION_NAME: "web-app"
+
+# Default configuration eliminating duplicated setup
+default:
+  image: node:16
+  before_script:
+    - echo "Starting job..."
+    - apt-get update -qq
+    - apt-get install -y -qq git curl
+    - node --version
+    - npm --version
+    - npm cache clean --force
+    - npm ci --cache .npm --prefer-offline
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - node_modules/
+      - .npm/
+  tags:
+    - docker
+
+# Template for Docker jobs
+.docker_template:
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - echo "Starting Docker operation..."
+    - docker info
+    - echo "Logging into Docker registry..."
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
+
+# Template for deployment jobs
+.deployment_template:
+  extends: .docker_template
+  before_script:
+    - echo "Starting deployment..."
+    - docker info
+    - echo "Logging into Docker registry..."
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
+    - echo "Installing kubectl..."
+    - curl -LO "https://dl.k8s.io/release/v1.24.0/bin/linux/amd64/kubectl"
+    - chmod +x kubectl
+    - mv kubectl /usr/local/bin/
+
+# Build jobs now inherit from default and have minimal duplication
+build:frontend:
+  stage: build
+  script:
+    - echo "Building frontend application"
+    - npm run build:frontend
+    - echo "Frontend build completed"
+    - ls -la dist/
+  artifacts:
+    paths:
+      - dist/frontend/
+    expire_in: 1 hour
+
+build:backend:
+  stage: build
+  script:
+    - echo "Building backend application"
+    - npm run build:backend
+    - echo "Backend build completed"
+    - ls -la dist/
+  artifacts:
+    paths:
+      - dist/backend/
+    expire_in: 1 hour
+
+# Test jobs inherit common setup
+test:unit:
+  stage: test
+  script:
+    - echo "Running unit tests"
+    - npm run test:unit
+    - echo "Unit tests completed"
+  coverage: '/Coverage: \d+\.\d+%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    paths:
+      - coverage/
+
+test:integration:
+  stage: test
+  services:
+    - postgres:13
+    - redis:6
+  variables:
+    POSTGRES_DB: testdb
+    POSTGRES_USER: testuser
+    POSTGRES_PASSWORD: testpass
+    DATABASE_URL: "postgresql://testuser:testpass@postgres:5432/testdb"
+  before_script:
+    - echo "Starting integration tests..."
+    - apt-get install -y -qq postgresql-client
+    - echo "Waiting for database..."
+    - sleep 10
+    - psql $DATABASE_URL -c "SELECT version();"
+  script:
+    - echo "Running integration tests"
+    - npm run test:integration
+    - echo "Integration tests completed"
+
+# Package job uses docker template
+package:docker:
+  extends: .docker_template
+  stage: package
+  script:
+    - echo "Building Docker image"
+    - docker build -t $DOCKER_REGISTRY/$APPLICATION_NAME:$CI_COMMIT_SHA .
+    - docker build -t $DOCKER_REGISTRY/$APPLICATION_NAME:latest .
+    - echo "Pushing Docker image"
+    - docker push $DOCKER_REGISTRY/$APPLICATION_NAME:$CI_COMMIT_SHA
+    - docker push $DOCKER_REGISTRY/$APPLICATION_NAME:latest
+    - echo "Docker packaging completed"
+  dependencies:
+    - build:frontend
+    - build:backend
+
+# Deployment jobs use shared template
+deploy:staging:
+  extends: .deployment_template
+  stage: deploy
+  variables:
+    ENVIRONMENT: "staging"
+  script:
+    - echo "Deploying to staging environment"
+    - docker pull $DOCKER_REGISTRY/$APPLICATION_NAME:$CI_COMMIT_SHA
+    - echo "Updating Kubernetes deployment..."
+    - kubectl set image deployment/$APPLICATION_NAME $APPLICATION_NAME=$DOCKER_REGISTRY/$APPLICATION_NAME:$CI_COMMIT_SHA -n staging
+    - kubectl rollout status deployment/$APPLICATION_NAME -n staging
+    - echo "Staging deployment completed"
+  environment:
+    name: staging
+    url: https://staging.company.com
+  dependencies:
+    - package:docker
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+deploy:production:
+  extends: .deployment_template
+  stage: deploy
+  variables:
+    ENVIRONMENT: "production"
+  script:
+    - echo "Deploying to production environment"
+    - docker pull $DOCKER_REGISTRY/$APPLICATION_NAME:$CI_COMMIT_SHA
+    - echo "Updating Kubernetes deployment..."
+    - kubectl set image deployment/$APPLICATION_NAME $APPLICATION_NAME=$DOCKER_REGISTRY/$APPLICATION_NAME:$CI_COMMIT_SHA -n production
+    - kubectl rollout status deployment/$APPLICATION_NAME -n production
+    - echo "Production deployment completed"
+  environment:
+    name: production
+    url: https://app.company.com
+  dependencies:
+    - package:docker
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: manual
