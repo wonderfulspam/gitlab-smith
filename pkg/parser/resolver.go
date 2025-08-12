@@ -72,61 +72,6 @@ func ResolveIncludesWithResolver(config *GitLabConfig, baseDir string, resolver 
 	return nil
 }
 
-// mergeIncludedFile reads and merges an included YAML file into the configuration
-func mergeIncludedFile(config *GitLabConfig, includePath string) error {
-	data, err := os.ReadFile(includePath)
-	if err != nil {
-		// File not found is not a fatal error in GitLab CI
-		return nil
-	}
-
-	includedConfig, err := Parse(data)
-	if err != nil {
-		return fmt.Errorf("failed to parse included file %s: %w", includePath, err)
-	}
-
-	// Merge included configuration into main config
-	// Jobs from includes are added (later includes can override earlier ones)
-	for jobName, job := range includedConfig.Jobs {
-		if config.Jobs == nil {
-			config.Jobs = make(map[string]*JobConfig)
-		}
-		config.Jobs[jobName] = job
-	}
-
-	// Merge variables (included variables are overridden by main file)
-	if includedConfig.Variables != nil && config.Variables == nil {
-		config.Variables = includedConfig.Variables
-	}
-
-	// Stages are typically only defined in the main file, but merge if needed
-	if len(config.Stages) == 0 && len(includedConfig.Stages) > 0 {
-		config.Stages = includedConfig.Stages
-	}
-
-	// Default job config
-	if config.Default == nil && includedConfig.Default != nil {
-		config.Default = includedConfig.Default
-	}
-
-	// Recursively process includes from the included file
-	if len(includedConfig.Include) > 0 {
-		includeDir := filepath.Dir(includePath)
-		// First resolve the includes from the included file into the included config
-		if err := ResolveIncludes(includedConfig, includeDir); err != nil {
-			return err
-		}
-		// Then merge any additional jobs found
-		for jobName, job := range includedConfig.Jobs {
-			if _, exists := config.Jobs[jobName]; !exists {
-				config.Jobs[jobName] = job
-			}
-		}
-	}
-
-	return nil
-}
-
 // resolveLocalInclude reads a local file
 func (r *IncludeResolver) resolveLocalInclude(path string) ([]byte, error) {
 	return os.ReadFile(path)

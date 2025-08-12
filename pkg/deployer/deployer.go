@@ -99,11 +99,11 @@ func (d *Deployer) checkDockerAvailability() error {
 func (d *Deployer) cleanup() error {
 	// Stop container if running
 	stopCmd := exec.CommandContext(d.ctx, "docker", "stop", d.config.ContainerName)
-	stopCmd.Run() // Ignore errors, container might not exist
+	_ = stopCmd.Run() // Ignore errors, container might not exist
 
 	// Remove container if exists
 	rmCmd := exec.CommandContext(d.ctx, "docker", "rm", d.config.ContainerName)
-	rmCmd.Run() // Ignore errors, container might not exist
+	_ = rmCmd.Run() // Ignore errors, container might not exist
 
 	return nil
 }

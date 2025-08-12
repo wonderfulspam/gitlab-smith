@@ -63,14 +63,12 @@ func (e *Expander) ExpandString(str string, jobVars map[string]interface{}) stri
 	}
 
 	// Add job-level vars (override global vars if defined)
-	if jobVars != nil {
-		for key, value := range jobVars {
-			if str, ok := value.(string); ok {
-				jobVariables[key] = str
-			} else {
-				// Handle non-string values by converting to string
-				jobVariables[key] = fmt.Sprintf("%v", value)
-			}
+	for key, value := range jobVars {
+		if str, ok := value.(string); ok {
+			jobVariables[key] = str
+		} else {
+			// Handle non-string values by converting to string
+			jobVariables[key] = fmt.Sprintf("%v", value)
 		}
 	}
 

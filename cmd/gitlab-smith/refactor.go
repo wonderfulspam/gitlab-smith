@@ -191,9 +191,9 @@ type FileInfo struct {
 }
 
 func formatAsTable(result *RefactorResult) string {
-	output := fmt.Sprintf("GitLab CI Configuration Comparison\n")
-	output += fmt.Sprintf("=====================================\n\n")
-	output += fmt.Sprintf("Files:\n")
+	output := "GitLab CI Configuration Comparison\n"
+	output += "=====================================\n\n"
+	output += "Files:\n"
 	output += fmt.Sprintf("  Old: %s\n", result.Files.Old)
 	output += fmt.Sprintf("  New: %s\n\n", result.Files.New)
 
@@ -201,8 +201,8 @@ func formatAsTable(result *RefactorResult) string {
 		output += fmt.Sprintf("Summary: %s\n\n", result.Comparison.Summary)
 
 		if len(result.Comparison.Semantic) > 0 {
-			output += fmt.Sprintf("Semantic Changes:\n")
-			output += fmt.Sprintf("-----------------\n")
+			output += "Semantic Changes:\n"
+			output += "-----------------\n"
 			for _, diff := range result.Comparison.Semantic {
 				output += fmt.Sprintf("  [%s] %s: %s\n", string(diff.Type), diff.Path, diff.Description)
 			}
@@ -210,8 +210,8 @@ func formatAsTable(result *RefactorResult) string {
 		}
 
 		if len(result.Comparison.Dependencies) > 0 {
-			output += fmt.Sprintf("Dependency Changes:\n")
-			output += fmt.Sprintf("-------------------\n")
+			output += "Dependency Changes:\n"
+			output += "-------------------\n"
 			for _, diff := range result.Comparison.Dependencies {
 				output += fmt.Sprintf("  [%s] %s: %s\n", string(diff.Type), diff.Path, diff.Description)
 			}
@@ -219,8 +219,8 @@ func formatAsTable(result *RefactorResult) string {
 		}
 
 		if len(result.Comparison.Performance) > 0 {
-			output += fmt.Sprintf("Performance Changes:\n")
-			output += fmt.Sprintf("--------------------\n")
+			output += "Performance Changes:\n"
+			output += "--------------------\n"
 			for _, diff := range result.Comparison.Performance {
 				output += fmt.Sprintf("  [%s] %s: %s\n", string(diff.Type), diff.Path, diff.Description)
 			}
@@ -231,8 +231,8 @@ func formatAsTable(result *RefactorResult) string {
 	}
 
 	if result.Analysis != nil {
-		output += fmt.Sprintf("Static Analysis:\n")
-		output += fmt.Sprintf("================\n")
+		output += "Static Analysis:\n"
+		output += "================\n"
 		output += fmt.Sprintf("Old config issues: %d\n", result.Analysis.Old.TotalIssues)
 		output += fmt.Sprintf("New config issues: %d\n", result.Analysis.New.TotalIssues)
 
@@ -472,15 +472,15 @@ type DeploymentInfo struct {
 }
 
 func formatFullTestAsTable(result *FullTestResult) string {
-	output := fmt.Sprintf("GitLab CI Full Test Results\n")
-	output += fmt.Sprintf("============================\n\n")
+	output := "GitLab CI Full Test Results\n"
+	output += "============================\n\n"
 
-	output += fmt.Sprintf("Deployment Info:\n")
+	output += "Deployment Info:\n"
 	output += fmt.Sprintf("  URL: %s\n", result.Deployment.URL)
 	output += fmt.Sprintf("  Container: %s\n", result.Deployment.ContainerName)
 	output += fmt.Sprintf("  Status: %s\n\n", result.Deployment.Status)
 
-	output += fmt.Sprintf("Files:\n")
+	output += "Files:\n"
 	output += fmt.Sprintf("  Old: %s\n", result.Files.Old)
 	output += fmt.Sprintf("  New: %s\n\n", result.Files.New)
 

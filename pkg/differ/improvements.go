@@ -49,13 +49,11 @@ func detectDefaultConsolidation(oldConfig, newConfig *parser.GitLabConfig, resul
 	if newDefault != nil && (oldDefault == nil || hasSignificantDefaultChanges(oldDefault, newDefault)) {
 		// Check if multiple jobs lost common configuration
 		commonFieldsRemoved := 0
-		jobsAffected := []string{}
 
 		for jobName, newJob := range newConfig.Jobs {
 			if oldJob, exists := oldConfig.Jobs[jobName]; exists {
 				if hasFieldsMovedToDefault(oldJob, newJob, newDefault) {
 					commonFieldsRemoved++
-					jobsAffected = append(jobsAffected, jobName)
 				}
 			}
 		}
@@ -157,13 +155,13 @@ func detectVariableOptimization(oldConfig, newConfig *parser.GitLabConfig, resul
 	newJobsWithVars := 0
 
 	for _, oldJob := range oldConfig.Jobs {
-		if oldJob.Variables != nil && len(oldJob.Variables) > 0 {
+		if len(oldJob.Variables) > 0 {
 			oldJobsWithVars++
 		}
 	}
 
 	for jobName, newJob := range newConfig.Jobs {
-		if newJob.Variables != nil && len(newJob.Variables) > 0 {
+		if len(newJob.Variables) > 0 {
 			if strings.HasPrefix(jobName, ".") {
 				templateJobsWithVars++
 			} else {

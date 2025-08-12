@@ -458,9 +458,9 @@ func TestFormatAsTable(t *testing.T) {
 	}
 
 	// Mock a simple table format test
-	mockOutput := fmt.Sprintf("GitLab CI Configuration Comparison\n")
-	mockOutput += fmt.Sprintf("=====================================\n\n")
-	mockOutput += fmt.Sprintf("Files:\n")
+	mockOutput := "GitLab CI Configuration Comparison\n"
+	mockOutput += "=====================================\n\n"
+	mockOutput += "Files:\n"
 	mockOutput += fmt.Sprintf("  Old: %s\n", result.Files.Old)
 	mockOutput += fmt.Sprintf("  New: %s\n\n", result.Files.New)
 

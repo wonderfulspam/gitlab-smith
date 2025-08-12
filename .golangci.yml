@@ -1,0 +1,51 @@
+run:
+  timeout: 10m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+linters-settings:
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+    exclude-functions:
+      - (*net/http.Response).Body.Close
+      - fmt.Fprintf
+      - fmt.Scanln
+  
+issues:
+  exclude-rules:
+    # Allow test files to be less strict
+    - path: _test\.go
+      linters:
+        - errcheck
+        - unused
+        - staticcheck
+    
+    # Ignore deprecated ioutil warnings for now
+    - linters:
+        - staticcheck
+      text: "SA1019.*io/ioutil"
+    
+    # Ignore deliberate cleanup calls where errors don't matter
+    - text: "DeleteProject.*is not checked"
+      linters:
+        - errcheck
+
+  max-same-issues: 10
+  max-issues-per-linter: 10
+  exclude-use-default: false
+  exclude:
+    - "Error return value.*resp.Body.Close.*is not checked"
+    - "Error return value.*MarkFlagRequired.*is not checked"
+    - "Error return value.*Destroy.*is not checked"
+    - "Error return value.*os.RemoveAll.*is not checked"
