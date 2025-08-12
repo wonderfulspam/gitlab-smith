@@ -122,7 +122,7 @@ func (vr *VisualRenderer) generateMermaidGraph(config *parser.GitLabConfig) stri
 				continue
 			}
 
-			nodeStyle := vr.getMermaidNodeStyle(job)
+			nodeStyle := vr.getMermaidNodeStyle(job, jobName)
 			buf.WriteString(fmt.Sprintf("    %s%s\n", vr.sanitizeMermaidID(jobName), nodeStyle))
 		}
 
@@ -260,9 +260,8 @@ func (vr *VisualRenderer) getJobNodeColor(job *parser.JobConfig) string {
 	}
 }
 
-func (vr *VisualRenderer) getMermaidNodeStyle(job *parser.JobConfig) string {
+func (vr *VisualRenderer) getMermaidNodeStyle(job *parser.JobConfig, jobName string) string {
 	stage := strings.ToLower(job.Stage)
-	jobName := job.Stage // Use stage as the display name for simplicity
 
 	var class string
 	switch {
