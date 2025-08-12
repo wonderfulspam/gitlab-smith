@@ -54,6 +54,7 @@ type BaseChecker struct {
 	enabled     bool
 	checkFunc   types.CheckFunc
 	description string
+	config      *Config // Reference to global config for filtering
 }
 
 func NewBaseChecker(name string, issueType types.IssueType, checkFunc types.CheckFunc) *BaseChecker {
@@ -65,11 +66,47 @@ func NewBaseChecker(name string, issueType types.IssueType, checkFunc types.Chec
 	}
 }
 
-func (c *BaseChecker) Check(config *parser.GitLabConfig) []types.Issue {
+// SetConfig sets the configuration reference for the checker
+func (c *BaseChecker) SetConfig(config *Config) {
+	c.config = config
+}
+
+func (c *BaseChecker) Check(gitlabConfig *parser.GitLabConfig) []types.Issue {
 	if !c.enabled {
 		return []types.Issue{}
 	}
-	return c.checkFunc(config)
+
+	// Run the check function
+	issues := c.checkFunc(gitlabConfig)
+
+	// Filter issues based on configuration
+	if c.config != nil {
+		filteredIssues := []types.Issue{}
+		for _, issue := range issues {
+			// Skip if job should be excluded
+			if issue.JobName != "" && c.config.ShouldSkipJob(c.name, issue.JobName) {
+				continue
+			}
+
+			// Skip if path should be excluded
+			if issue.Path != "" && c.config.ShouldSkipPath(c.name, issue.Path) {
+				continue
+			}
+
+			// Override severity if configured
+			issue.Severity = c.config.GetCheckSeverity(c.name, issue.Severity)
+
+			// Skip if below severity threshold
+			if !c.config.ShouldReportIssue(issue.Severity) {
+				continue
+			}
+
+			filteredIssues = append(filteredIssues, issue)
+		}
+		return filteredIssues
+	}
+
+	return issues
 }
 
 func (c *BaseChecker) Name() string {

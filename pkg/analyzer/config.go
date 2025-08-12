@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
 	"gopkg.in/yaml.v2"
@@ -12,12 +14,50 @@ import (
 
 // Config holds the overall analyzer configuration
 type Config struct {
-	Checks map[string]types.CheckConfig `yaml:"checks" json:"checks"`
+	Version  string                       `yaml:"version" json:"version"`
+	Analyzer AnalyzerConfig               `yaml:"analyzer" json:"analyzer"`
+	Checks   map[string]types.CheckConfig `yaml:"checks" json:"checks"`
+	Differ   DifferConfig                 `yaml:"differ,omitempty" json:"differ,omitempty"`
+	Output   OutputConfig                 `yaml:"output,omitempty" json:"output,omitempty"`
+}
+
+// AnalyzerConfig holds analyzer-specific configuration
+type AnalyzerConfig struct {
+	SeverityThreshold types.Severity   `yaml:"severity_threshold,omitempty" json:"severity_threshold,omitempty"`
+	GlobalExclusions  GlobalExclusions `yaml:"global_exclusions,omitempty" json:"global_exclusions,omitempty"`
+}
+
+// GlobalExclusions defines global exclusion patterns
+type GlobalExclusions struct {
+	Paths []string `yaml:"paths,omitempty" json:"paths,omitempty"`
+	Jobs  []string `yaml:"jobs,omitempty" json:"jobs,omitempty"`
+}
+
+// DifferConfig holds differ-specific configuration
+type DifferConfig struct {
+	IgnoreChanges       []string `yaml:"ignore_changes,omitempty" json:"ignore_changes,omitempty"`
+	ImprovementPatterns []string `yaml:"improvement_patterns,omitempty" json:"improvement_patterns,omitempty"`
+}
+
+// OutputConfig holds output formatting configuration
+type OutputConfig struct {
+	Format          string `yaml:"format,omitempty" json:"format,omitempty"`
+	Verbose         bool   `yaml:"verbose,omitempty" json:"verbose,omitempty"`
+	ShowSuggestions bool   `yaml:"show_suggestions,omitempty" json:"show_suggestions,omitempty"`
+	GroupBy         string `yaml:"group_by,omitempty" json:"group_by,omitempty"`
 }
 
 // DefaultConfig returns the default analyzer configuration
 func DefaultConfig() *Config {
 	return &Config{
+		Version: "1.0",
+		Analyzer: AnalyzerConfig{
+			SeverityThreshold: types.SeverityLow,
+		},
+		Output: OutputConfig{
+			Format:          "table",
+			ShowSuggestions: true,
+		},
 		Checks: map[string]types.CheckConfig{
 			// Performance checks
 			"cache_usage": {
@@ -294,4 +334,111 @@ func (c *Config) GetChecksByType(issueType types.IssueType) []string {
 		}
 	}
 	return checks
+}
+
+// ShouldSkipJob checks if a job should be excluded based on configuration
+func (c *Config) ShouldSkipJob(checkName, jobName string) bool {
+	// Check global exclusions first
+	if c.Analyzer.GlobalExclusions.Jobs != nil {
+		for _, pattern := range c.Analyzer.GlobalExclusions.Jobs {
+			if matched, _ := matchPattern(pattern, jobName); matched {
+				return true
+			}
+		}
+	}
+
+	// Check check-specific exclusions
+	if check, exists := c.Checks[checkName]; exists {
+		// Check ignore patterns
+		for _, pattern := range check.IgnorePatterns {
+			if matched, _ := matchPattern(pattern, jobName); matched {
+				return true
+			}
+		}
+
+		// Check specific job exclusions
+		for _, excludedJob := range check.Exclusions.Jobs {
+			if excludedJob == jobName {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// ShouldSkipPath checks if a path should be excluded based on configuration
+func (c *Config) ShouldSkipPath(checkName, path string) bool {
+	// Check global exclusions first
+	if c.Analyzer.GlobalExclusions.Paths != nil {
+		for _, pattern := range c.Analyzer.GlobalExclusions.Paths {
+			if matched, _ := matchPattern(pattern, path); matched {
+				return true
+			}
+		}
+	}
+
+	// Check check-specific exclusions
+	if check, exists := c.Checks[checkName]; exists {
+		for _, excludedPath := range check.Exclusions.Paths {
+			if matched, _ := matchPattern(excludedPath, path); matched {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// GetCheckSeverity returns the configured severity for a check (or default)
+func (c *Config) GetCheckSeverity(checkName string, defaultSeverity types.Severity) types.Severity {
+	if check, exists := c.Checks[checkName]; exists && check.Severity != "" {
+		return check.Severity
+	}
+	return defaultSeverity
+}
+
+// ShouldReportIssue checks if an issue meets the severity threshold
+func (c *Config) ShouldReportIssue(severity types.Severity) bool {
+	if c.Analyzer.SeverityThreshold == "" {
+		return true // No threshold set, report all
+	}
+
+	return severityLevel(severity) >= severityLevel(c.Analyzer.SeverityThreshold)
+}
+
+// GetCustomParam retrieves a custom parameter for a check
+func (c *Config) GetCustomParam(checkName, paramName string, defaultValue interface{}) interface{} {
+	if check, exists := c.Checks[checkName]; exists {
+		if value, found := check.CustomParams[paramName]; found {
+			return value
+		}
+	}
+	return defaultValue
+}
+
+// Helper function to convert severity to a comparable level
+func severityLevel(s types.Severity) int {
+	switch s {
+	case types.SeverityLow:
+		return 1
+	case types.SeverityMedium:
+		return 2
+	case types.SeverityHigh:
+		return 3
+	default:
+		return 0
+	}
+}
+
+// Helper function for simple glob pattern matching
+func matchPattern(pattern, str string) (bool, error) {
+	// Simple implementation - can be enhanced with proper glob library
+	if strings.Contains(pattern, "*") {
+		// Convert simple glob to regex
+		regexPattern := strings.ReplaceAll(pattern, "*", ".*")
+		regexPattern = "^" + regexPattern + "$"
+		return regexp.MatchString(regexPattern, str)
+	}
+	return pattern == str, nil
 }

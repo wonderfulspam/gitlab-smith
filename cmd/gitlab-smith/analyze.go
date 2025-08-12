@@ -21,10 +21,18 @@ performance, security, and reliability.`,
 	RunE: runAnalyze,
 }
 
-var analyzeFormat string
+var (
+	analyzeFormat            string
+	analyzeConfigFile        string
+	analyzeSeverityThreshold string
+	analyzeDisableChecks     []string
+)
 
 func init() {
 	analyzeCmd.Flags().StringVar(&analyzeFormat, "format", "table", "Output format: table, json")
+	analyzeCmd.Flags().StringVar(&analyzeConfigFile, "config", "", "Configuration file path")
+	analyzeCmd.Flags().StringVar(&analyzeSeverityThreshold, "severity-threshold", "", "Minimum severity to report (low, medium, high)")
+	analyzeCmd.Flags().StringSliceVar(&analyzeDisableChecks, "disable-check", []string{}, "Disable specific checks")
 	rootCmd.AddCommand(analyzeCmd)
 }
 
@@ -43,8 +51,28 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse GitLab CI config: %w", err)
 	}
 
+	// Create analyzer with configuration
+	var analyzerInstance *analyzer.Analyzer
+	if analyzeConfigFile != "" {
+		var err error
+		analyzerInstance, err = analyzer.NewFromConfigFile(analyzeConfigFile)
+		if err != nil {
+			return fmt.Errorf("failed to load configuration: %w", err)
+		}
+	} else {
+		analyzerInstance = analyzer.New()
+	}
+
+	// Apply CLI overrides
+	if analyzeSeverityThreshold != "" {
+		analyzerInstance.GetConfig().Analyzer.SeverityThreshold = types.Severity(analyzeSeverityThreshold)
+	}
+	for _, checkName := range analyzeDisableChecks {
+		analyzerInstance.DisableCheck(checkName)
+	}
+
 	// Run analysis
-	result := analyzer.Analyze(config)
+	result := analyzerInstance.Analyze(config)
 
 	switch analyzeFormat {
 	case "json":

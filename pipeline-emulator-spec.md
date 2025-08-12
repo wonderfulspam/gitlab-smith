@@ -41,7 +41,7 @@ GitLabSmith provides **two modes** depending on your validation needs:
 └─────────────────────────┘    └───────────────────┘
 ```
 
-**Mode 2: Full Behavioral Testing (Local GitLab)**  
+**Mode 2: Full Behavioral Testing (Local GitLab)**
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                GitLabSmith Full Mode                        │
@@ -138,5 +138,126 @@ gitlabsmith benchmark --pvc-vs-artifacts --jobs=100 --nodes=12
 - **Local GitLab**: Docker-based GitLab instance for behavioral testing
 - **Test Runners**: Kubernetes runners for PVC vs artifact benchmarking
 - **Performance Testing**: Only possible with local infrastructure you control
+
+## Configuration Management
+
+### Overview
+GitLabSmith provides a flexible configuration system that allows users to customize analysis behavior, severity levels, and filtering rules to match their organization's specific needs and CI/CD practices.
+
+### Configuration File Format
+Configuration is stored in YAML or JSON format (`.gitlab-smith.yml` or `.gitlab-smith.json`):
+
+```yaml
+# .gitlab-smith.yml
+version: "1.0"
+analyzer:
+  # Global severity threshold - only report issues at or above this level
+  severity_threshold: low  # low, medium, high
+  # Configure individual checks
+  checks:
+    job_naming:
+      enabled: true
+      severity: low  # Override default severity
+      ignore_patterns:
+        - "legacy-*"  # Ignore legacy job names
+        - "*-deprecated"
+      exclusions:
+        jobs:
+          - "my job with spaces"  # Specific job to ignore
+          - "another legacy job"
+    image_tags:
+      enabled: true
+      severity: high  # Elevate importance
+      allowed_tags:
+        - "latest"  # Sometimes needed for internal images
+        - "stable"
+    script_complexity:
+      enabled: true
+      max_lines: 50  # Custom threshold
+      max_commands: 20
+    cache_usage:
+      enabled: true
+      required_for_stages:
+        - build
+        - test
+
+  # Pattern-based exclusions across all checks
+  global_exclusions:
+    paths:
+      - "experimental/*"
+      - "third-party/*"
+    jobs:
+      - "*-experimental"
+      - "sandbox-*"
+
+# Differ configuration
+differ:
+  # Ignore certain types of changes
+  ignore_changes:
+    - variable_order  # Don't report reordered variables
+    - comment_changes  # Ignore comment-only changes
+
+  # Treat certain changes as improvements
+  improvement_patterns:
+    - consolidation  # Combining duplicate jobs
+    - simplification  # Reducing rule complexity
+# Output configuration
+output:
+  format: table  # table, json, yaml
+  verbose: false
+  show_suggestions: true
+  group_by: type  # type, severity, job
+```
+
+### Use Cases
+
+#### 1. Ignoring Specific Findings
+Users can ignore findings for specific jobs, patterns, or paths:
+- **Job-specific exclusions**: Whitelist specific jobs that don't follow conventions
+- **Pattern-based ignoring**: Use glob patterns to exclude groups of jobs
+- **Path-based exclusions**: Ignore issues in certain directories
+
+#### 2. Adjusting Severity Levels
+Override default severity for any check to match organizational priorities:
+- Elevate security checks to high severity
+- Reduce maintainability checks to low severity for legacy code
+- Set global thresholds to filter noise
+
+#### 3. Custom Thresholds
+Configure check-specific parameters:
+- Maximum script complexity limits
+- Required cache configuration for specific stages
+- Allowed Docker image tags
+
+#### 4. Global Filtering
+Apply organization-wide rules:
+- Exclude experimental or third-party configurations
+- Set minimum severity for CI/CD pipeline failures
+- Configure output preferences
+
+### Configuration Precedence
+1. CLI flags (highest priority)
+2. Environment variables (`GITLAB_SMITH_*`)
+3. Project configuration file (`.gitlab-smith.yml`)
+4. User configuration file (`~/.gitlab-smith/config.yml`)
+5. System defaults (lowest priority)
+
+### CLI Integration
+```bash
+# Use specific config file
+gitlabsmith analyze --config=custom-config.yml
+
+# Override severity threshold
+gitlabsmith analyze --severity-threshold=high
+
+# Disable specific check
+gitlabsmith analyze --disable-check=job_naming
+
+# Generate default config
+gitlabsmith config init
+
+# Validate config file
+gitlabsmith config validate
+```
 
 GitLabSmith provides the tooling needed to safely refactor complex GitLab CI configurations - from static analysis that works immediately, to full behavioral validation when you need absolute confidence in your changes.

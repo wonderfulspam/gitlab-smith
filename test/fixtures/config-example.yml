@@ -1,0 +1,66 @@
+# Example GitLab CI file with issues that can be configured
+
+stages:
+  - build
+  - test
+  - deploy
+
+# Job with spaces in name - can be ignored via config
+"my job with spaces":
+  stage: build
+  script:
+    - echo "This job has spaces in its name"
+    - echo "Can be ignored with job_naming exclusions"
+
+# Legacy job that can be ignored via pattern
+legacy-deployment:
+  stage: deploy
+  script:
+    - echo "Legacy job"
+    - echo "Can be ignored with ignore_patterns"
+
+# Job with hardcoded URLs
+api-test:
+  stage: test
+  script:
+    - curl http://example.com/api
+    - curl https://test.example.com/endpoint
+    - echo "Has hardcoded URLs"
+
+# Job without cache configuration
+build-app:
+  stage: build
+  script:
+    - npm install
+    - npm build
+  artifacts:
+    paths:
+      - dist/
+    # Missing expiry - performance issue
+
+# Job with complex rules
+complex-rules-job:
+  stage: test
+  script:
+    - echo "Complex rules"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+  # Has >3 rules - maintainability issue
+
+# Job using latest tag
+docker-build:
+  stage: build
+  image: docker:latest  # Security issue - using latest tag
+  script:
+    - docker build -t myapp .
+
+# Experimental job that could be globally excluded
+experimental-feature:
+  stage: test
+  script:
+    - echo "Experimental feature"
+    - echo "Can be excluded with global_exclusions"

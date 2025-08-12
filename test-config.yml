@@ -1,0 +1,116 @@
+# GitLabSmith Configuration File
+# This file configures analysis behavior, severity levels, and filtering rules
+
+version: "1.0"
+
+analyzer:
+  # Global severity threshold - only report issues at or above this level
+  # Options: low, medium, high
+  severity_threshold: low
+
+  # Global exclusions applied to all checks
+  global_exclusions:
+    # Paths to exclude from analysis
+    paths:
+      # - "experimental/*"
+      # - "third-party/*"
+
+    # Job name patterns to exclude
+    jobs:
+      # - "*-experimental"
+      # - "sandbox-*"
+
+# Configure individual checks
+# Each check can be enabled/disabled, have severity overridden, and have custom exclusions
+checks:
+  job_naming:
+    enabled: true
+    type: maintainability
+    description: "Checks job naming conventions"
+    # Override the default severity for this check
+    # severity: low
+
+    # Ignore patterns - jobs matching these patterns won't be checked
+    ignore_patterns:
+      # - "legacy-*"
+      # - "*-deprecated"
+
+    # Specific exclusions
+    exclusions:
+      jobs:
+        # - "my job with spaces"
+        # - "another legacy job"
+
+  image_tags:
+    enabled: true
+    type: security
+    description: "Ensures Docker images use specific tags"
+    # severity: high  # Elevate importance
+
+    # Custom parameters for this check
+    # custom_params:
+    #   allowed_tags:
+    #     - "latest"  # Sometimes needed for internal images
+    #     - "stable"
+
+  script_complexity:
+    enabled: true
+    type: maintainability
+    description: "Detects overly complex job scripts"
+    # custom_params:
+    #   max_lines: 50  # Custom threshold
+    #   max_commands: 20
+
+  cache_usage:
+    enabled: true
+    type: performance
+    description: "Checks for proper cache configuration in jobs"
+    # custom_params:
+    #   required_for_stages:
+    #     - build
+    #     - test
+
+  # Add configurations for other checks as needed
+  artifact_expiration:
+    enabled: true
+    type: performance
+    description: "Ensures artifacts have expiration times set"
+
+  dependency_chains:
+    enabled: true
+    type: performance
+    description: "Detects overly long dependency chains"
+
+  environment_variables:
+    enabled: true
+    type: security
+    description: "Detects potential secrets in variable names"
+
+  duplicated_code:
+    enabled: true
+    type: maintainability
+    description: "Finds duplicate script blocks"
+
+  retry_configuration:
+    enabled: true
+    type: reliability
+    description: "Checks retry configuration for jobs"
+
+# Differ configuration (for refactor command)
+differ:
+  # Ignore certain types of changes
+  ignore_changes:
+    # - variable_order  # Don't report reordered variables
+    # - comment_changes  # Ignore comment-only changes
+
+  # Treat certain changes as improvements
+  improvement_patterns:
+    # - consolidation  # Combining duplicate jobs
+    # - simplification  # Reducing rule complexity
+
+# Output configuration
+output:
+  format: table  # Options: table, json, yaml
+  verbose: false
+  show_suggestions: true
+  # group_by: type  # Options: type, severity, job

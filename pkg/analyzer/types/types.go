@@ -48,11 +48,20 @@ type CheckFunc func(config *parser.GitLabConfig) []Issue
 
 // CheckConfig holds configuration for individual checks
 type CheckConfig struct {
-	Name        string    `yaml:"name" json:"name"`
-	Type        IssueType `yaml:"type" json:"type"`
-	Enabled     bool      `yaml:"enabled" json:"enabled"`
-	Severity    Severity  `yaml:"severity,omitempty" json:"severity,omitempty"`
-	Description string    `yaml:"description,omitempty" json:"description,omitempty"`
+	Name           string                 `yaml:"name" json:"name"`
+	Type           IssueType              `yaml:"type" json:"type"`
+	Enabled        bool                   `yaml:"enabled" json:"enabled"`
+	Severity       Severity               `yaml:"severity,omitempty" json:"severity,omitempty"`
+	Description    string                 `yaml:"description,omitempty" json:"description,omitempty"`
+	IgnorePatterns []string               `yaml:"ignore_patterns,omitempty" json:"ignore_patterns,omitempty"`
+	Exclusions     CheckExclusions        `yaml:"exclusions,omitempty" json:"exclusions,omitempty"`
+	CustomParams   map[string]interface{} `yaml:"custom_params,omitempty" json:"custom_params,omitempty"`
+}
+
+// CheckExclusions defines specific exclusions for a check
+type CheckExclusions struct {
+	Jobs  []string `yaml:"jobs,omitempty" json:"jobs,omitempty"`
+	Paths []string `yaml:"paths,omitempty" json:"paths,omitempty"`
 }
 
 func (r *AnalysisResult) FilterBySeverity(severity Severity) []Issue {

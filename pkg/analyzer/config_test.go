@@ -455,3 +455,211 @@ func TestConfigGetChecksByType(t *testing.T) {
 		t.Errorf("Expected 0 reliability checks, got %d", len(reliabilityChecks))
 	}
 }
+
+func TestConfigShouldSkipJob(t *testing.T) {
+	config := &Config{
+		Analyzer: AnalyzerConfig{
+			GlobalExclusions: GlobalExclusions{
+				Jobs: []string{"experimental-*", "sandbox-*"},
+			},
+		},
+		Checks: map[string]types.CheckConfig{
+			"job_naming": {
+				IgnorePatterns: []string{"legacy-*"},
+				Exclusions: types.CheckExclusions{
+					Jobs: []string{"special job", "another job"},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		checkName  string
+		jobName    string
+		shouldSkip bool
+	}{
+		{"job_naming", "experimental-test", true},  // Global exclusion
+		{"job_naming", "sandbox-dev", true},        // Global exclusion
+		{"job_naming", "legacy-deploy", true},      // Check-specific pattern
+		{"job_naming", "special job", true},        // Check-specific exclusion
+		{"job_naming", "normal-job", false},        // Not excluded
+		{"other_check", "experimental-test", true}, // Global exclusion applies to all checks
+		{"other_check", "normal-job", false},       // Not excluded
+	}
+
+	for _, tt := range tests {
+		result := config.ShouldSkipJob(tt.checkName, tt.jobName)
+		if result != tt.shouldSkip {
+			t.Errorf("ShouldSkipJob(%s, %s) = %v, want %v",
+				tt.checkName, tt.jobName, result, tt.shouldSkip)
+		}
+	}
+}
+
+func TestConfigShouldSkipPath(t *testing.T) {
+	config := &Config{
+		Analyzer: AnalyzerConfig{
+			GlobalExclusions: GlobalExclusions{
+				Paths: []string{"experimental/*", "third-party/*"},
+			},
+		},
+		Checks: map[string]types.CheckConfig{
+			"cache_usage": {
+				Exclusions: types.CheckExclusions{
+					Paths: []string{"legacy/*", "temp/*"},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		checkName  string
+		path       string
+		shouldSkip bool
+	}{
+		{"cache_usage", "experimental/feature", true}, // Global exclusion
+		{"cache_usage", "third-party/lib", true},      // Global exclusion
+		{"cache_usage", "legacy/old-code", true},      // Check-specific exclusion
+		{"cache_usage", "temp/file", true},            // Check-specific exclusion
+		{"cache_usage", "src/main", false},            // Not excluded
+		{"other_check", "experimental/test", true},    // Global exclusion
+		{"other_check", "legacy/code", false},         // Check-specific exclusion doesn't apply
+	}
+
+	for _, tt := range tests {
+		result := config.ShouldSkipPath(tt.checkName, tt.path)
+		if result != tt.shouldSkip {
+			t.Errorf("ShouldSkipPath(%s, %s) = %v, want %v",
+				tt.checkName, tt.path, result, tt.shouldSkip)
+		}
+	}
+}
+
+func TestConfigGetCheckSeverity(t *testing.T) {
+	config := &Config{
+		Checks: map[string]types.CheckConfig{
+			"job_naming": {
+				Severity: types.SeverityHigh,
+			},
+			"cache_usage": {
+				// No severity override
+			},
+		},
+	}
+
+	// Check with override
+	severity := config.GetCheckSeverity("job_naming", types.SeverityLow)
+	if severity != types.SeverityHigh {
+		t.Errorf("Expected severity high, got %s", severity)
+	}
+
+	// Check without override (use default)
+	severity = config.GetCheckSeverity("cache_usage", types.SeverityMedium)
+	if severity != types.SeverityMedium {
+		t.Errorf("Expected default severity medium, got %s", severity)
+	}
+
+	// Check non-existent check (use default)
+	severity = config.GetCheckSeverity("non_existent", types.SeverityLow)
+	if severity != types.SeverityLow {
+		t.Errorf("Expected default severity low, got %s", severity)
+	}
+}
+
+func TestConfigShouldReportIssue(t *testing.T) {
+	tests := []struct {
+		threshold     types.Severity
+		issueSeverity types.Severity
+		shouldReport  bool
+	}{
+		{"", types.SeverityLow, true},                      // No threshold
+		{"", types.SeverityHigh, true},                     // No threshold
+		{types.SeverityLow, types.SeverityLow, true},       // Meets threshold
+		{types.SeverityLow, types.SeverityMedium, true},    // Above threshold
+		{types.SeverityLow, types.SeverityHigh, true},      // Above threshold
+		{types.SeverityMedium, types.SeverityLow, false},   // Below threshold
+		{types.SeverityMedium, types.SeverityMedium, true}, // Meets threshold
+		{types.SeverityHigh, types.SeverityLow, false},     // Below threshold
+		{types.SeverityHigh, types.SeverityMedium, false},  // Below threshold
+		{types.SeverityHigh, types.SeverityHigh, true},     // Meets threshold
+	}
+
+	for _, tt := range tests {
+		config := &Config{
+			Analyzer: AnalyzerConfig{
+				SeverityThreshold: tt.threshold,
+			},
+		}
+
+		result := config.ShouldReportIssue(tt.issueSeverity)
+		if result != tt.shouldReport {
+			t.Errorf("ShouldReportIssue(%s) with threshold %s = %v, want %v",
+				tt.issueSeverity, tt.threshold, result, tt.shouldReport)
+		}
+	}
+}
+
+func TestConfigGetCustomParam(t *testing.T) {
+	config := &Config{
+		Checks: map[string]types.CheckConfig{
+			"script_complexity": {
+				CustomParams: map[string]interface{}{
+					"max_lines":    50,
+					"max_commands": 20,
+				},
+			},
+		},
+	}
+
+	// Get existing param
+	maxLines := config.GetCustomParam("script_complexity", "max_lines", 10)
+	if maxLines != 50 {
+		t.Errorf("Expected max_lines to be 50, got %v", maxLines)
+	}
+
+	// Get non-existent param (use default)
+	maxNesting := config.GetCustomParam("script_complexity", "max_nesting", 5)
+	if maxNesting != 5 {
+		t.Errorf("Expected default max_nesting to be 5, got %v", maxNesting)
+	}
+
+	// Get param from non-existent check (use default)
+	value := config.GetCustomParam("non_existent", "some_param", "default")
+	if value != "default" {
+		t.Errorf("Expected default value, got %v", value)
+	}
+}
+
+func TestMatchPattern(t *testing.T) {
+	tests := []struct {
+		pattern string
+		str     string
+		match   bool
+	}{
+		{"exact", "exact", true},
+		{"exact", "not-exact", false},
+		{"prefix-*", "prefix-test", true},
+		{"prefix-*", "prefix-", true},
+		{"prefix-*", "other-test", false},
+		{"*-suffix", "test-suffix", true},
+		{"*-suffix", "-suffix", true},
+		{"*-suffix", "test-other", false},
+		{"*-middle-*", "test-middle-part", true},
+		{"*-middle-*", "-middle-", true},
+		{"*-middle-*", "test-other-part", false},
+		{"*", "anything", true},
+		{"*", "", true},
+	}
+
+	for _, tt := range tests {
+		result, err := matchPattern(tt.pattern, tt.str)
+		if err != nil {
+			t.Errorf("matchPattern(%s, %s) returned error: %v", tt.pattern, tt.str, err)
+			continue
+		}
+		if result != tt.match {
+			t.Errorf("matchPattern(%s, %s) = %v, want %v",
+				tt.pattern, tt.str, result, tt.match)
+		}
+	}
+}

@@ -59,6 +59,7 @@ func (a *Analyzer) applyConfig() {
 		if checkConfig, exists := a.config.Checks[checker.Name()]; exists {
 			if baseChecker, ok := checker.(*BaseChecker); ok {
 				baseChecker.SetEnabled(checkConfig.Enabled)
+				baseChecker.SetConfig(a.config) // Pass config reference
 				if checkConfig.Description != "" {
 					baseChecker.SetDescription(checkConfig.Description)
 				}

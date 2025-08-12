@@ -1,0 +1,37 @@
+# Example configuration demonstrating key features
+
+version: "1.0"
+
+analyzer:
+  # Only report medium and high severity issues
+  severity_threshold: medium
+
+  # Exclude all experimental jobs globally
+  global_exclusions:
+    jobs:
+      - "experimental-*"
+
+checks:
+  # Configure job naming check to ignore legacy jobs and specific names
+  job_naming:
+    enabled: true
+    type: maintainability
+    description: "Checks job naming conventions"
+    # Override severity to low (won't be reported due to threshold)
+    severity: low
+    ignore_patterns:
+      - "legacy-*"
+    exclusions:
+      jobs:
+        - "my job with spaces"
+
+  # Make security checks high priority
+  image_tags:
+    enabled: true
+    type: security
+    description: "Ensures Docker images use specific tags"
+    severity: high  # Elevate importance
+
+  # Disable URL checking
+  script_complexity:
+    enabled: false  # Disable this check entirely
