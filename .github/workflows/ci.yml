@@ -1,0 +1,187 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+    
+    - name: Download dependencies
+      run: go mod download
+    
+    - name: Run tests with coverage
+      run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+    
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+        args: --timeout=10m
+
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+    
+    - name: Check go fmt
+      run: |
+        gofmt_files=$(gofmt -l .)
+        if [[ -n "${gofmt_files}" ]]; then
+          echo "The following files need to be formatted:"
+          echo "${gofmt_files}"
+          exit 1
+        fi
+    
+    - name: Check go vet
+      run: go vet ./...
+    
+    - name: Check go mod tidy
+      run: |
+        go mod tidy
+        git diff --exit-code go.mod go.sum
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+    
+    - name: Run Gosec Security Scanner
+      uses: securego/gosec@master
+      with:
+        args: '-no-fail -fmt sarif -out results.sarif ./...'
+    
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: results.sarif
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [linux, darwin]
+        arch: [amd64, arm64]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+    
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
+      run: |
+        go build -v -o gitlab-smith-${{ matrix.os }}-${{ matrix.arch }} ./cmd/gitlab-smith
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gitlab-smith-${{ matrix.os }}-${{ matrix.arch }}
+        path: gitlab-smith-${{ matrix.os }}-${{ matrix.arch }}
+        retention-days: 7
+
+  validate-scenarios:
+    name: Validate Test Scenarios
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+    
+    - name: Build gitlab-smith
+      run: go build -o gitlab-smith ./cmd/gitlab-smith
+    
+    - name: Validate gold standard cases
+      run: |
+        for file in test/gold-standard-cases/*.yml; do
+          echo "Analyzing: $file"
+          ./gitlab-smith analyze "$file" --format json | jq -e '.issues | length == 0' || {
+            echo "Gold standard case $file produced issues when it should have none"
+            ./gitlab-smith analyze "$file"
+            exit 1
+          }
+        done
+    
+    - name: Test refactoring scenarios
+      run: |
+        for dir in test/refactoring-scenarios/*/; do
+          if [ -d "$dir/before" ] && [ -d "$dir/after" ]; then
+            echo "Testing scenario: $(basename $dir)"
+            ./gitlab-smith refactor \
+              --old "$dir/before/.gitlab-ci.yml" \
+              --new "$dir/after/.gitlab-ci.yml" \
+              --format json || true
+          fi
+        done

@@ -1,0 +1,20 @@
+# act configuration for local GitHub Actions testing
+# https://github.com/nektos/act
+
+# Use medium size images by default (includes more tools)
+--container-architecture linux/amd64
+--platform ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Reuse containers between runs for faster execution
+--reuse
+
+# Set default secrets/vars for local testing
+--secret GITHUB_TOKEN=fake-token-for-local-testing
+--env GITHUB_REPOSITORY=local/gitlab-smith
+--env GITHUB_REPOSITORY_OWNER=local
+
+# Pull docker images if not present
+--pull=false
+
+# Verbose output for debugging
+# --verbose

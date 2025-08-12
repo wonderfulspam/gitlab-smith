@@ -8,7 +8,7 @@ GitLabSmith is a GitLab CI/CD configuration refactoring and validation tool writ
 
 ## Technology Stack
 
-- **Language**: Go
+- **Language**: Go 1.24
 - **CLI Framework**: Cobra
 - **Container**: Docker for GitLab deployment
 - **Testing**: Go testing package
