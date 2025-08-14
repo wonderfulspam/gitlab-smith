@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer"
 	"github.com/wonderfulspam/gitlab-smith/pkg/analyzer/types"
-	"github.com/wonderfulspam/gitlab-smith/pkg/deployer"
 	"github.com/wonderfulspam/gitlab-smith/pkg/differ"
 	"github.com/wonderfulspam/gitlab-smith/pkg/parser"
 	"github.com/wonderfulspam/gitlab-smith/pkg/renderer"
@@ -32,6 +31,8 @@ var (
 	fullTest        bool
 	format          string
 	pipelineCompare bool
+	gitlabURL       string
+	gitlabToken     string
 )
 
 func init() {
@@ -39,9 +40,11 @@ func init() {
 	refactorCmd.Flags().StringVar(&newFile, "new", "", "Path to the new GitLab CI configuration file")
 	refactorCmd.Flags().StringVar(&outputFile, "output", "", "Output file for results (default: stdout)")
 	refactorCmd.Flags().BoolVar(&analyze, "analyze", true, "Perform static analysis on both configurations")
-	refactorCmd.Flags().BoolVar(&fullTest, "full-test", false, "Enable full testing mode with local GitLab deployment")
+	refactorCmd.Flags().BoolVar(&fullTest, "full-test", false, "Enable full testing mode with GitLab API")
 	refactorCmd.Flags().StringVar(&format, "format", "json", "Output format (json, table, dot, mermaid)")
 	refactorCmd.Flags().BoolVar(&pipelineCompare, "pipeline-compare", false, "Enable pipeline execution comparison simulation")
+	refactorCmd.Flags().StringVar(&gitlabURL, "gitlab-url", "", "GitLab URL for full testing mode")
+	refactorCmd.Flags().StringVar(&gitlabToken, "gitlab-token", "", "GitLab token for API access")
 
 	refactorCmd.MarkFlagRequired("old")
 	refactorCmd.MarkFlagRequired("new")
@@ -268,56 +271,40 @@ func formatAsTable(result *RefactorResult) string {
 }
 
 func runFullTestMode() error {
-	fmt.Println("🚀 Starting full testing mode with local GitLab deployment...")
+	fmt.Println("🚀 Starting full testing mode with GitLab API...")
 
-	// Create deployer with default configuration
-	deploy := deployer.New(nil)
-
-	fmt.Println("📦 Checking Docker availability...")
-
-	// Deploy GitLab instance
-	fmt.Println("🔄 Deploying GitLab instance (this may take several minutes)...")
-	if err := deploy.Deploy(); err != nil {
-		return fmt.Errorf("failed to deploy GitLab: %w", err)
+	// Validate required parameters
+	if gitlabURL == "" {
+		return fmt.Errorf("--gitlab-url is required for full testing mode")
+	}
+	if gitlabToken == "" {
+		return fmt.Errorf("--gitlab-token is required for full testing mode")
 	}
 
-	fmt.Println("✅ GitLab deployment successful!")
+	fmt.Printf("📍 GitLab URL: %s\n", gitlabURL)
 
-	// Get deployment status
-	status, err := deploy.GetStatus()
-	if err != nil {
-		fmt.Printf("⚠️  Warning: Could not get deployment status: %v\n", err)
-	} else {
-		fmt.Printf("📍 GitLab URL: %s\n", status.URL)
-		fmt.Printf("📊 Container Status: %s\n", status.ContainerStatus)
-	}
-
-	// Parse configurations for deployment
+	// Parse configurations
 	fmt.Println("📋 Parsing GitLab CI configurations...")
 
 	// Parse old configuration
 	oldData, err := os.ReadFile(oldFile)
 	if err != nil {
-		deploy.Destroy() // Cleanup on error
 		return fmt.Errorf("reading old file '%s': %w", oldFile, err)
 	}
 
 	oldConfig, err := parser.Parse(oldData)
 	if err != nil {
-		deploy.Destroy() // Cleanup on error
 		return fmt.Errorf("parsing old GitLab CI config '%s': %w", oldFile, err)
 	}
 
 	// Parse new configuration
 	newData, err := os.ReadFile(newFile)
 	if err != nil {
-		deploy.Destroy() // Cleanup on error
 		return fmt.Errorf("reading new file '%s': %w", newFile, err)
 	}
 
 	newConfig, err := parser.Parse(newData)
 	if err != nil {
-		deploy.Destroy() // Cleanup on error
 		return fmt.Errorf("parsing new GitLab CI config '%s': %w", newFile, err)
 	}
 
@@ -332,10 +319,8 @@ func runFullTestMode() error {
 			Old: oldFile,
 			New: newFile,
 		},
-		Deployment: DeploymentInfo{
-			URL:           status.URL,
-			ContainerName: status.ContainerName,
-			Status:        status.ContainerStatus,
+		GitLabInfo: GitLabInfo{
+			URL: gitlabURL,
 		},
 	}
 
@@ -351,20 +336,18 @@ func runFullTestMode() error {
 		}
 	}
 
-	// Perform actual GitLab API pipeline testing
-	fmt.Println("🎭 Running GitLab API pipeline testing...")
+	// Perform GitLab API validation
+	fmt.Println("🎭 Running GitLab API validation...")
 
 	// Create temporary directories for before/after configs
 	beforeDir, err := os.MkdirTemp("", "gitlab-smith-before-*")
 	if err != nil {
-		deploy.Destroy()
 		return fmt.Errorf("failed to create temp directory for before config: %w", err)
 	}
 	defer os.RemoveAll(beforeDir)
 
 	afterDir, err := os.MkdirTemp("", "gitlab-smith-after-*")
 	if err != nil {
-		deploy.Destroy()
 		return fmt.Errorf("failed to create temp directory for after config: %w", err)
 	}
 	defer os.RemoveAll(afterDir)
@@ -374,26 +357,18 @@ func runFullTestMode() error {
 	afterConfigPath := filepath.Join(afterDir, ".gitlab-ci.yml")
 
 	if err := os.WriteFile(beforeConfigPath, oldData, 0644); err != nil {
-		deploy.Destroy()
 		return fmt.Errorf("failed to write before config: %w", err)
 	}
 
 	if err := os.WriteFile(afterConfigPath, newData, 0644); err != nil {
-		deploy.Destroy()
 		return fmt.Errorf("failed to write after config: %w", err)
 	}
 
-	// Use the validator with full testing enabled
-	validator := validator.NewRefactoringValidator()
-	deployerConfig := deployer.DefaultConfig()
-	validator.EnableFullTesting(deployerConfig)
+	// Create validator with GitLab API client
+	validatorInstance := validator.NewRefactoringValidatorWithGitLab(gitlabURL, gitlabToken)
 
-	// Set the already deployed instance
-	validator.SetDeployer(deploy)
-
-	validationResult, err := validator.CompareConfigurations(beforeDir, afterDir)
+	validationResult, err := validatorInstance.CompareConfigurations(beforeDir, afterDir)
 	if err != nil {
-		deploy.Destroy()
 		return fmt.Errorf("GitLab API validation failed: %w", err)
 	}
 
@@ -405,7 +380,6 @@ func runFullTestMode() error {
 	case "json":
 		output, err = json.MarshalIndent(result, "", "  ")
 		if err != nil {
-			deploy.Destroy() // Cleanup on error
 			return fmt.Errorf("marshaling result to JSON: %w", err)
 		}
 	case "table":
@@ -415,12 +389,10 @@ func runFullTestMode() error {
 		r := renderer.New(nil)
 		visualOutput, err := r.RenderVisualComparison(oldConfig, newConfig, result.PipelineComparison, format)
 		if err != nil {
-			deploy.Destroy() // Cleanup on error
 			return fmt.Errorf("generating visual output: %w", err)
 		}
 		output = []byte(visualOutput)
 	default:
-		deploy.Destroy() // Cleanup on error
 		return fmt.Errorf("unsupported format: %s", format)
 	}
 
@@ -428,7 +400,6 @@ func runFullTestMode() error {
 	if outputFile != "" {
 		err = os.WriteFile(outputFile, output, 0644)
 		if err != nil {
-			deploy.Destroy() // Cleanup on error
 			return fmt.Errorf("writing output file: %w", err)
 		}
 		fmt.Printf("📁 Results written to %s\n", outputFile)
@@ -436,23 +407,7 @@ func runFullTestMode() error {
 		fmt.Println(string(output))
 	}
 
-	// Ask user if they want to keep the deployment running
-	fmt.Print("🤔 Keep GitLab deployment running for manual testing? (y/N): ")
-	var response string
-	fmt.Scanln(&response)
-
-	if response == "y" || response == "Y" || response == "yes" {
-		fmt.Printf("✨ GitLab is running at %s\n", status.URL)
-		fmt.Println("💡 Use 'docker stop gitlab-smith-test' to stop when done")
-		fmt.Println("💡 Default login: root / gitlabsmith123")
-	} else {
-		fmt.Println("🧹 Cleaning up GitLab deployment...")
-		if err := deploy.Destroy(); err != nil {
-			fmt.Printf("⚠️  Warning: Failed to destroy deployment: %v\n", err)
-		} else {
-			fmt.Println("✅ Cleanup complete")
-		}
-	}
+	fmt.Printf("✅ GitLab API validation complete!\n")
 
 	return nil
 }
@@ -462,23 +417,19 @@ type FullTestResult struct {
 	Analysis           *AnalysisComparison          `json:"analysis,omitempty"`
 	PipelineComparison *renderer.PipelineComparison `json:"pipeline_comparison,omitempty"`
 	Files              FileInfo                     `json:"files"`
-	Deployment         DeploymentInfo               `json:"deployment"`
+	GitLabInfo         GitLabInfo                   `json:"gitlab"`
 }
 
-type DeploymentInfo struct {
-	URL           string `json:"url"`
-	ContainerName string `json:"container_name"`
-	Status        string `json:"status"`
+type GitLabInfo struct {
+	URL string `json:"url"`
 }
 
 func formatFullTestAsTable(result *FullTestResult) string {
 	output := "GitLab CI Full Test Results\n"
 	output += "============================\n\n"
 
-	output += "Deployment Info:\n"
-	output += fmt.Sprintf("  URL: %s\n", result.Deployment.URL)
-	output += fmt.Sprintf("  Container: %s\n", result.Deployment.ContainerName)
-	output += fmt.Sprintf("  Status: %s\n\n", result.Deployment.Status)
+	output += "GitLab Info:\n"
+	output += fmt.Sprintf("  URL: %s\n\n", result.GitLabInfo.URL)
 
 	output += "Files:\n"
 	output += fmt.Sprintf("  Old: %s\n", result.Files.Old)

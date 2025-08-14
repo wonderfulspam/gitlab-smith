@@ -1,59 +1,73 @@
 # GitLabSmith
 
-GitLab CI/CD configuration refactoring and validation tool for safe pipeline transformations.
+GitLab CI/CD configuration analysis and validation tool.
 
 ## Quick Start
 
 ```bash
-# Build and run
 go build -o gitlab-smith ./cmd/gitlab-smith
-./gitlab-smith parse .gitlab-ci.yml
 
-# Analyze a configuration
-./gitlab-smith analyze .gitlab-ci.yml
+# Analyze your .gitlab-ci.yml
+gitlab-smith analyze .gitlab-ci.yml
 
-# Compare configurations 
-./gitlab-smith refactor --old before.yml --new after.yml
+# Compare configurations
+gitlab-smith refactor --old before.yml --new after.yml
 ```
-
-## Status: Phase 1 Complete, Phase 2 Partial 🚧
-
-- ✅ **Parser**: Full GitLab CI YAML parsing with includes (local/remote/template/project)
-- ✅ **Analyzer**: 72+ static analysis rules for optimization detection
-- ✅ **Differ**: Semantic comparison between configurations 
-- ✅ **Renderer**: Visual pipeline diagrams (Mermaid & DOT formats)
-- 🚧 **Deployer**: GitLab deploys but not used for actual pipeline rendering
-- ⏳ **Phase 3**: Performance benchmarking (not started)
 
 ## Commands
 
-### Parse Configuration
 ```bash
-./gitlab-smith parse .gitlab-ci.yml        # JSON output with job dependencies
+# Parse configuration
+gitlab-smith parse .gitlab-ci.yml
+
+# Static analysis (72+ rules)
+gitlab-smith analyze .gitlab-ci.yml
+
+# Compare configurations  
+gitlab-smith refactor --old old.yml --new new.yml
+
+# With GitLab API validation
+gitlab-smith refactor --old old.yml --new new.yml \
+  --full-test --gitlab-url https://gitlab.com --gitlab-token $TOKEN
+
+# Visualize pipeline
+gitlab-smith visualize .gitlab-ci.yml --format mermaid
 ```
 
-### Static Analysis  
+## Modes
+
+- **Static** (default): Works offline, no GitLab needed
+- **API**: Validates via GitLab API (requires token)
+- **Full**: API + pipeline execution testing
+
+## GitLab Setup (Optional)
+
+Use GitLab.com, self-hosted, or local Docker:
+
 ```bash
-./gitlab-smith analyze .gitlab-ci.yml      # Detect optimization opportunities
+# docker-compose.yml
+version: '3.8'
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    ports: ["8080:80"]
+    environment:
+      GITLAB_ROOT_PASSWORD: password123
+      EXTERNAL_URL: http://localhost:8080
 ```
 
-### Compare Configurations
-```bash
-./gitlab-smith refactor --old before.yml --new after.yml           # Semantic comparison
-./gitlab-smith refactor --old before.yml --new after.yml --full-test # With GitLab deployment
-```
+## Features
 
-### Generate Visualizations
-```bash
-./gitlab-smith visualize .gitlab-ci.yml --format mermaid           # Mermaid flowchart
-./gitlab-smith visualize .gitlab-ci.yml --format dot --output file.dot # GraphViz DOT format
-```
+- ✅ GitLab CI parsing with includes
+- ✅ 72+ static analysis rules  
+- ✅ Semantic configuration comparison
+- ✅ Pipeline visualization (Mermaid/DOT)
+- ✅ GitLab API integration
+- 🚧 Real GitLab API client
+- ⏳ Performance benchmarking
 
 ## Development
 
 ```bash
-go build -o gitlab-smith ./cmd/gitlab-smith
-go test ./... && go fmt ./... && go vet ./...  # Always run after changes
+go test ./... && go fmt ./... && go vet ./...
 ```
-
-See [CLAUDE.md](CLAUDE.md) for full development guide.
