@@ -72,8 +72,7 @@ func NewClient(backendType BackendType, config *Config) (Client, error) {
 
 // NewAPIClient creates a client that talks to a real GitLab instance
 func NewAPIClient(config *Config) (Client, error) {
-	// Will be implemented in backends/api.go
-	return nil, fmt.Errorf("API client not yet implemented")
+	return NewAPIClientImpl(config)
 }
 
 // NewSimulationClient creates a client that simulates GitLab behavior
